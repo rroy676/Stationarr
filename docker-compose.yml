@@ -1,12 +1,12 @@
 services:
-  app:
+  streamarr:
     build: .
-    container_name: stationarr
+    container_name: streamarr
     restart: unless-stopped
     ports:
       - "3005:3000"
     volumes:
-      - stationarr_data:/app/data
+      - streamarr_data:/app/data
       - scraper_shared:/app/data/scraper
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
@@ -19,11 +19,11 @@ services:
       - SCRAPER_URL=http://epg:3000
       - SCRAPER_CHANNELS_PATH=/app/data/scraper/channels.xml
     networks:
-      - stationarr_net
+      - streamarr_net
 
   epg:
-    image: iptv-org-epg:local
-    container_name: stationarr-epg
+    image: ghcr.io/iptv-org/epg:master
+    container_name: streamarr-epg
     restart: unless-stopped
     ports:
       - "4000:3000"
@@ -34,13 +34,13 @@ services:
       - DAYS=3
       - MAX_CONNECTIONS=5
     networks:
-      - stationarr_net
+      - streamarr_net
 
 volumes:
-  stationarr_data:
+  streamarr_data:
     external: true
-    name: stationarr_iptv_data
+    name: streamarr_iptv_data
   scraper_shared:
 
 networks:
-  stationarr_net:
+  streamarr_net:
