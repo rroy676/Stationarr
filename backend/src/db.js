@@ -5,7 +5,17 @@ const fs = require('fs');
 const DATA_DIR = process.env.DATA_DIR || './data';
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
-const db = new Database(path.join(DATA_DIR, 'stationarr.db'));
+// Support existing streamarr.db installs and new stationarr.db installs
+const fs = require('fs');
+const dbPath = (() => {
+  const newPath  = path.join(DATA_DIR, 'stationarr.db');
+  const oldPath  = path.join(DATA_DIR, 'streamarr.db');
+  // If new db exists use it, else if old exists use it (migration), else create new
+  if (fs.existsSync(newPath)) return newPath;
+  if (fs.existsSync(oldPath)) return oldPath;
+  return newPath;
+})();
+const db = new Database(dbPath);
 
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
