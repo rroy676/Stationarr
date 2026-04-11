@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  iptv-org/epg channels configuration
+  
+  Add channels you want to scrape EPG for.
+  Find channel IDs at: https://github.com/iptv-org/database/blob/master/data/channels.csv
+  Find available sites at: https://github.com/iptv-org/epg/blob/master/SITES.md
+  
+  Format:
+  <channel site="site-name.com" lang="en" xmltv_id="Channel.country" site_id="site-specific-id">Channel Name</channel>
+-->
+<channels>
+  <!-- Examples - replace with your actual channels -->
+  <!-- <channel site="tvguide.com" lang="en" xmltv_id="CNN.us" site_id="CNN">CNN</channel> -->
+  <!-- <channel site="tvguide.com" lang="en" xmltv_id="ESPN.us" site_id="ESPN">ESPN</channel> -->
+  <!-- <channel site="sky.com" lang="en" xmltv_id="BBC1.uk" site_id="bbc-one">BBC One</channel> -->
+</channels>
