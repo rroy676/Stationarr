@@ -23,6 +23,7 @@ app.use('/api/epg',       require('./routes/epg'));
 app.use('/api/serve',     require('./routes/serve'));
 app.use('/api/admin',     require('./routes/admin'));
 app.use('/api/guide',     require('./routes/guide'));
+app.use('/api/backup',    require('./routes/backup'));
 app.use('/api/scraper',   require('./routes/scraper'));
 
 // Xtream-compatible API — mounted at root

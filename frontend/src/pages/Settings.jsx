@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Tv, Rss } from 'lucide-react';
+import { ArrowLeft, Tv, Rss, Download, Upload } from 'lucide-react';
 import { applyTheme, getTheme } from '../components/ThemeToggle.jsx';
-import { auth as api } from '../api.js';
+import { auth as api, backup as backupApi } from '../api.js';
 import { useAuth, useToast } from '../context.jsx';
 import { useTZ, TIMEZONE_GROUPS } from '../timezone.jsx';
 
@@ -17,7 +17,8 @@ export default function Settings() {
   const handleTheme = (t) => { applyTheme(t); setTheme(t); };
 
   const [form, setForm]     = useState({ current: '', next: '', confirm: '' });
-  const [saving, setSaving] = useState(false);
+  const [saving,    setSaving]    = useState(false);
+  const [restoring, setRestoring] = useState(false);
 
   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
 
@@ -38,7 +39,7 @@ export default function Settings() {
       <header style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border2)', padding: '0 24px', height: 54, display: 'flex', alignItems: 'center', gap: 12 }}>
         <button className="btn btn-ghost btn-icon btn-sm" onClick={() => nav('/')}><ArrowLeft size={15}/></button>
         <Tv size={16} color="var(--accent)" />
-        <span style={{ fontWeight: 700 }}>Stream<span style={{ color: 'var(--accent)' }}>arr</span></span>
+        <span style={{ fontWeight: 700 }}>Station<span style={{ color: 'var(--accent)' }}>arr</span></span>
         <span className="text-muted" style={{ marginLeft: 4 }}>/ Settings</span>
       </header>
 
@@ -142,6 +143,54 @@ export default function Settings() {
             <button className="btn btn-primary btn-sm" style={{ flexShrink: 0, marginLeft: 16 }} onClick={() => nav('/scraper')}>
               <Rss size={13}/> Open scraper
             </button>
+          </div>
+        </div>
+
+        {/* Backup & Restore */}
+        <div>
+          <h2 style={{ fontSize: 15, fontWeight: 600, marginBottom: 4 }}>Backup & Restore</h2>
+          <p className="text-sm text-muted" style={{ marginBottom: 12 }}>
+            Export all your playlists, channels, EPG sources and settings to a JSON file. Import it on any Stationarr instance to restore.
+          </p>
+          <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+            {/* Export */}
+            <div>
+              <p style={{ fontWeight: 500, marginBottom: 6, fontSize: 13 }}>Export backup</p>
+              <button className="btn btn-primary btn-sm" onClick={() => backupApi.download()}>
+                <Download size={13}/> Download backup file
+              </button>
+            </div>
+
+            <div style={{ borderTop: '1px solid var(--border2)', paddingTop: 16 }}>
+              <p style={{ fontWeight: 500, marginBottom: 4, fontSize: 13 }}>Restore from backup</p>
+              <p className="text-xs text-muted" style={{ marginBottom: 10 }}>
+                This will <strong style={{ color: 'var(--text)' }}>add</strong> playlists from the backup — it won't delete existing ones. EPG sources with the same name will be skipped.
+              </p>
+              <label style={{ cursor: 'pointer' }}>
+                <input type="file" accept=".json" style={{ display: 'none' }}
+                  onChange={async (e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    setRestoring(true);
+                    try {
+                      const text = await file.text();
+                      const data = JSON.parse(text);
+                      const res  = await backupApi.restore(data);
+                      toast(res.message, 'success');
+                    } catch (err) {
+                      toast(err.message || 'Restore failed', 'error');
+                    } finally {
+                      setRestoring(false);
+                      e.target.value = '';
+                    }
+                  }}
+                />
+                <span className={`btn btn-sm ${restoring ? 'btn-ghost' : ''}`}>
+                  <Upload size={13}/> {restoring ? 'Restoring…' : 'Choose backup file…'}
+                </span>
+              </label>
+            </div>
           </div>
         </div>
 

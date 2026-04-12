@@ -15,7 +15,7 @@ export default function EditorHeader({ playlist, channelCount, enabledCount, onI
 
       <div className="flex gap-2" style={{ marginRight: 4 }}>
         <Tv size={16} color="var(--accent)" />
-        <span style={{ fontWeight: 700, fontSize: 13, letterSpacing: '-0.01em' }}>Stream<span style={{ color: 'var(--accent)' }}>arr</span></span>
+        <span style={{ fontWeight: 700, fontSize: 13, letterSpacing: '-0.01em' }}>Station<span style={{ color: 'var(--accent)' }}>arr</span></span>
       </div>
 
       <div style={{ width: 1, height: 20, background: 'var(--border)', flexShrink: 0 }} />

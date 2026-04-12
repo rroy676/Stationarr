@@ -172,7 +172,7 @@ export default function ScraperPage() {
       <header style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border2)', padding: '0 24px', height: 54, display: 'flex', alignItems: 'center', gap: 12 }}>
         <button className="btn btn-ghost btn-icon btn-sm" onClick={() => nav('/settings')}><ArrowLeft size={15}/></button>
         <Tv size={16} color="var(--accent)" />
-        <span style={{ fontWeight: 700 }}>Stream<span style={{ color: 'var(--accent)' }}>arr</span></span>
+        <span style={{ fontWeight: 700 }}>Station<span style={{ color: 'var(--accent)' }}>arr</span></span>
         <span className="text-muted" style={{ marginLeft: 4 }}>/ EPG Scraper</span>
         <div style={{ flex: 1 }} />
         {status !== null && (

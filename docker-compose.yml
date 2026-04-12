@@ -1,12 +1,12 @@
 services:
-  streamarr:
+  stationarr:
     build: .
-    container_name: streamarr
+    container_name: stationarr
     restart: unless-stopped
     ports:
-      - "3005:3000"
+      - "3006:3000"
     volumes:
-      - streamarr_data:/app/data
+      - stationarr_data:/app/data
       - scraper_shared:/app/data/scraper
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
@@ -14,33 +14,35 @@ services:
       - JWT_SECRET=${JWT_SECRET:-changeme-set-in-env-file}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-7d}
       - DATA_DIR=/app/data
-      - BASE_URL=${BASE_URL:-http://localhost:3005}
+      - BASE_URL=${BASE_URL:-http://localhost:3006}
       - REGISTRATION_OPEN=${REGISTRATION_OPEN:-true}
-      - SCRAPER_URL=http://epg:3000
+      - SCRAPER_URL=http://stationarr-epg:3000
       - SCRAPER_CHANNELS_PATH=/app/data/scraper/channels.xml
+      - DOCKER_API_VERSION=1.41
     networks:
-      - streamarr_net
+      - stationarr_net
 
-  epg:
-    image: ghcr.io/iptv-org/epg:master
-    container_name: streamarr-epg
-    restart: unless-stopped
-    ports:
-      - "4000:3000"
-    volumes:
-      - scraper_shared:/epg/public
-    environment:
-      - CRON_SCHEDULE=0 */6 * * *
-      - DAYS=3
-      - MAX_CONNECTIONS=5
-    networks:
-      - streamarr_net
+  # ── iptv-org/epg scraper sidecar (optional) ──────────────────────
+  # Uncomment to enable. Go to Settings → EPG Scraper to manage.
+  #
+  # epg:
+  #   image: iptv-org-epg:local
+  #   container_name: stationarr-epg
+  #   restart: unless-stopped
+  #   ports:
+  #     - "4001:3000"
+  #   volumes:
+  #     - scraper_shared:/epg/public
+  #   environment:
+  #     - CRON_SCHEDULE=0 */6 * * *
+  #     - DAYS=3
+  #     - MAX_CONNECTIONS=5
+  #   networks:
+  #     - stationarr_net
 
 volumes:
-  streamarr_data:
-    external: true
-    name: streamarr_iptv_data
+  stationarr_data:
   scraper_shared:
 
 networks:
-  streamarr_net:
+  stationarr_net:

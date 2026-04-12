@@ -105,3 +105,14 @@ export const scraper = {
   guideXmlUrl: ()         => '/api/scraper/guide.xml',
   runStream:   ()         => '/api/scraper/run',  // SSE
 };
+
+export const backup = {
+  download: () => {
+    const token = localStorage.getItem('token');
+    const a = document.createElement('a');
+    a.href = `/api/backup?token=${token}`;
+    a.download = `stationarr-backup-${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+  },
+  restore: (body) => post('/backup/restore', body),
+};

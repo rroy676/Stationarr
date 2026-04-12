@@ -77,7 +77,7 @@ export default function Dashboard() {
       <header style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border2)', padding: '0 24px', height: 54, display: 'flex', alignItems: 'center', gap: 16 }}>
         <div className="flex gap-2" style={{ flex: 1 }}>
           <Tv size={18} color="var(--accent)" />
-          <span style={{ fontWeight: 700, letterSpacing: '-0.01em' }}>Stream<span style={{ color: 'var(--accent)' }}>arr</span></span>
+          <span style={{ fontWeight: 700, letterSpacing: '-0.01em' }}>Station<span style={{ color: 'var(--accent)' }}>arr</span></span>
         </div>
         <div className="flex gap-2">
           <ThemeToggle />

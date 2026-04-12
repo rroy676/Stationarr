@@ -30,7 +30,7 @@ export default function Register() {
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <Tv size={32} color="var(--accent)" style={{ marginBottom: 10 }} />
           <h1 style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em' }}>
-            Stream<span style={{ color: "var(--accent)" }}>arr</span>
+            Station<span style={{ color: "var(--accent)" }}>arr</span>
           </h1>
           <p className="text-muted text-sm" style={{ marginTop: 6 }}>Create an account</p>
         </div>
