@@ -17,10 +17,37 @@ export default function ServeModal({ playlist: initialPlaylist, onClose }) {
   const xtreamM3uUrl = `${base}/get.php?username=${playlist.xtream_user}&password=${playlist.xtream_pass}&type=m3u_plus`;
   const xtreamEpgUrl = `${base}/xmltv.php?username=${playlist.xtream_user}&password=${playlist.xtream_pass}`;
 
-  const copy = (text, key) => {
-    navigator.clipboard.writeText(text);
-    setCopied(key);
-    setTimeout(() => setCopied(''), 2000);
+  const copy = async (text, key) => {
+    let success = false;
+
+    // Try modern clipboard API (requires HTTPS or localhost)
+    if (navigator.clipboard && window.isSecureContext) {
+      try {
+        await navigator.clipboard.writeText(text);
+        success = true;
+      } catch {}
+    }
+
+    // Fall back to execCommand (works on HTTP)
+    if (!success) {
+      try {
+        const el = document.createElement('textarea');
+        el.value = text;
+        el.style.cssText = 'position:fixed;top:0;left:0;opacity:0;';
+        document.body.appendChild(el);
+        el.focus();
+        el.select();
+        success = document.execCommand('copy');
+        document.body.removeChild(el);
+      } catch {}
+    }
+
+    if (success) {
+      setCopied(key);
+      setTimeout(() => setCopied(''), 2000);
+    } else {
+      toast('Click the URL field and press Ctrl+A then Ctrl+C to copy', 'info');
+    }
   };
 
   const regenCreds = async () => {
