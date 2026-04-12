@@ -26,13 +26,51 @@ async function mergeXMLTV(cachePaths, epgIds, timeshiftMap = {}) {
       const { channels, programmes } = await extractFromFile(cachePath, epgIds, filterAll, seenChannels, timeshiftMap);
       channelXml.push(...channels);
       programmeXml.push(...programmes);
+      // Free memory after each file
+      global.gc && global.gc();
     } catch (e) {
       console.error('[xmltv-merge] Error reading', cachePath, e.message);
     }
   }
 
   const body = [...channelXml, ...programmeXml].join('\n');
+  // Free arrays before building string
+  channelXml.length = 0;
+  programmeXml.length = 0;
   return `<?xml version="1.0" encoding="UTF-8"?>\n<tv generator-info-name="Stationarr">\n${body}\n</tv>`;
+}
+
+// Stream-based version that writes directly to an Express response
+async function mergeXMLTVStream(cachePaths, epgIds, timeshiftMap = {}, res) {
+  const filterAll    = !epgIds || epgIds.size === 0;
+  const seenChannels = new Set();
+
+  res.write('<?xml version="1.0" encoding="UTF-8"?>\n<tv generator-info-name="Stationarr">\n');
+
+  // Write channels first from all sources
+  for (const cachePath of cachePaths) {
+    if (!fs.existsSync(cachePath)) continue;
+    try {
+      const { channels } = await extractFromFile(cachePath, epgIds, filterAll, seenChannels, timeshiftMap);
+      for (const ch of channels) res.write(ch + '\n');
+    } catch (e) {
+      console.error('[xmltv-merge] Error reading channels', cachePath, e.message);
+    }
+  }
+
+  // Write programmes from all sources
+  for (const cachePath of cachePaths) {
+    if (!fs.existsSync(cachePath)) continue;
+    try {
+      const { programmes } = await extractFromFile(cachePath, epgIds, filterAll, new Set(), timeshiftMap);
+      for (const p of programmes) res.write(p + '\n');
+    } catch (e) {
+      console.error('[xmltv-merge] Error reading programmes', cachePath, e.message);
+    }
+  }
+
+  res.write('</tv>');
+  res.end();
 }
 
 /**
@@ -125,10 +163,11 @@ function extractFromFile(filePath, epgIds, filterAll, seenChannels, timeshiftMap
     parser.on('end',   () => resolve({ channels, programmes }));
     parser.on('error', reject);
 
-    const fileBuffer = fs.readFileSync(filePath);
-    const isGzip     = fileBuffer[0] === 0x1f && fileBuffer[1] === 0x8b;
-    const source     = Readable.from(fileBuffer);
+    // Stream from disk — never loads full file into RAM
+    const isGzip = filePath.endsWith('.gz') ||
+      (() => { try { const b = Buffer.alloc(2); const fd = fs.openSync(filePath,'r'); fs.readSync(fd,b,0,2,0); fs.closeSync(fd); return b[0]===0x1f&&b[1]===0x8b; } catch { return false; } })();
 
+    const source = fs.createReadStream(filePath);
     if (isGzip) {
       source.pipe(zlib.createGunzip()).pipe(parser);
     } else {
@@ -189,4 +228,4 @@ function esc(s) {
     .replace(/"/g, '&quot;');
 }
 
-module.exports = { mergeXMLTV, saveEPGCache, deleteEPGCache, proxyEPG };
+module.exports = { mergeXMLTV, mergeXMLTVStream, saveEPGCache, deleteEPGCache, proxyEPG };
