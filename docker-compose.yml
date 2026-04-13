@@ -4,7 +4,7 @@ services:
     container_name: stationarr
     restart: unless-stopped
     ports:
-      - "3006:3000"
+      - "3000:3000"
     volumes:
       - stationarr_data:/app/data
       - scraper_shared:/app/data/scraper
@@ -14,7 +14,7 @@ services:
       - JWT_SECRET=${JWT_SECRET:-changeme-set-in-env-file}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-7d}
       - DATA_DIR=/app/data
-      - BASE_URL=${BASE_URL:-http://localhost:3006}
+      - BASE_URL=${BASE_URL:-http://localhost:3000}
       - REGISTRATION_OPEN=${REGISTRATION_OPEN:-true}
       - SCRAPER_URL=http://stationarr-epg:3000
       - SCRAPER_CHANNELS_PATH=/app/data/scraper/channels.xml
