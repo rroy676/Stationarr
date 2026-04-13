@@ -23,6 +23,28 @@ A self-hosted, open-source IPTV playlist and EPG manager. Import your M3U playli
 
 ---
 
+## Screenshots
+
+**Dashboard**
+<p align="center">
+  <img src="docs/screenshots/dashboard.png" alt="Dashboard dark" width="49%"/>
+  <img src="docs/screenshots/dashboard-light.png" alt="Dashboard light" width="49%"/>
+</p>
+
+**Channel Editor**
+<p align="center">
+  <img src="docs/screenshots/editor.png" alt="Channel Editor dark" width="49%"/>
+  <img src="docs/screenshots/editor-light.png" alt="Channel Editor light" width="49%"/>
+</p>
+
+**TV Guide**
+<p align="center">
+  <img src="docs/screenshots/guide.png" alt="TV Guide dark" width="49%"/>
+  <img src="docs/screenshots/guide-light.png" alt="TV Guide light" width="49%"/>
+</p>
+
+---
+
 ## Features
 
 ### Playlist management
