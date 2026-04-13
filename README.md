@@ -3,6 +3,7 @@
 ![License](https://img.shields.io/badge/license-MIT-blue)
 ![Docker](https://img.shields.io/badge/docker-ready-blue)
 ![Node](https://img.shields.io/badge/node-20%2B-green)
+[![Ko-fi](https://img.shields.io/badge/Ko--fi-support-FF5E5B?logo=ko-fi&logoColor=white)](https://ko-fi.com/rroy676)
 
 A self-hosted, open-source IPTV playlist and EPG manager. Import your M3U playlist, organise channels, match programme guide data from multiple sources, and serve a clean edited playlist directly to your IPTV player.
 

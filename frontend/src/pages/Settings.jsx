@@ -194,6 +194,25 @@ export default function Settings() {
           </div>
         </div>
 
+        {/* Support */}
+        <div style={{ textAlign: 'center', padding: '8px 0' }}>
+          <a href="https://ko-fi.com/rroy676" target="_blank" rel="noreferrer"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+              background: '#FF5E5B', color: '#fff', borderRadius: 8,
+              padding: '10px 20px', fontWeight: 600, fontSize: 13,
+              textDecoration: 'none', transition: 'opacity 0.15s',
+            }}
+            onMouseOver={e => e.currentTarget.style.opacity = '0.85'}
+            onMouseOut={e => e.currentTarget.style.opacity = '1'}
+          >
+            ☕ Support Stationarr on Ko-fi
+          </a>
+          <p className="text-xs text-muted" style={{ marginTop: 8 }}>
+            Stationarr is free and open source. Your support keeps it going.
+          </p>
+        </div>
+
         {/* Sign out */}
         <div>
           <h2 style={{ fontSize: 15, fontWeight: 600, marginBottom: 12 }}>Session</h2>
