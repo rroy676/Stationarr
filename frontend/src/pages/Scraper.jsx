@@ -182,6 +182,7 @@ export default function ScraperPage() {
         )}
         <ThemeToggle />
         <button className="btn btn-ghost btn-sm" onClick={() => nav('/settings')}><Settings size={13}/></button>
+          <HeaderButtons />
         <button className="btn btn-ghost btn-sm" onClick={load}><RefreshCw size={12}/></button>
       </header>
 

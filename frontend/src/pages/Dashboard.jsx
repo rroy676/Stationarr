@@ -83,13 +83,7 @@ export default function Dashboard() {
           <ThemeToggle />
           {user?.is_admin && <button className="btn btn-ghost btn-sm" onClick={() => nav('/admin')}><Shield size={14}/> Admin</button>}
           <button className="btn btn-ghost btn-sm" onClick={() => nav('/settings')}><Settings size={14}/> Settings</button>
-          <a href="https://ko-fi.com/rroy676" target="_blank" rel="noreferrer"
-            className="btn btn-ghost btn-sm"
-            style={{ color: '#FF5E5B', borderColor: 'transparent' }}
-            title="Support Stationarr on Ko-fi"
-          >
-            ☕ Support
-          </a>
+          <HeaderButtons />
           <button className="btn btn-ghost btn-sm" onClick={logout}><LogOut size={14}/> Sign out</button>
         </div>
       </header>

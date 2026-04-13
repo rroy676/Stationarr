@@ -231,6 +231,7 @@ export default function Guide() {
         <button className="btn btn-ghost btn-icon btn-sm" onClick={() => shiftView(1)}><ChevronRight size={14}/></button>
         <ThemeToggle />
         <button className="btn btn-ghost btn-sm" onClick={() => nav('/settings')}><Settings size={13}/></button>
+          <HeaderButtons />
         <button className="btn btn-ghost btn-icon btn-sm" title="Refresh" onClick={() => { delete guideCache.current[id]; load(id, true); }}><RefreshCw size={13}/></button>
       </header>
 

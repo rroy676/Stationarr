@@ -1,3 +1,4 @@
+import HeaderButtons from '../components/HeaderButtons.jsx';
 import { useEffect, useState } from 'react';
 import { useNavigate }          from 'react-router-dom';
 import { ArrowLeft, Tv, Plus, Trash2, Shield, ShieldOff, KeyRound, Users } from 'lucide-react';
@@ -71,6 +72,14 @@ export default function Admin() {
         <Tv size={16} color="var(--accent)" />
         <span style={{ fontWeight: 700 }}>Station<span style={{ color: "var(--accent)" }}>arr</span></span>
         <span className="text-muted" style={{ marginLeft: 4 }}>/ Admin</span>
+        <div style={{ flex: 1 }}/>
+        <a href="https://ko-fi.com/rroy676" target="_blank" rel="noreferrer"
+          className="btn btn-ghost btn-sm"
+          style={{ color: '#FF5E5B', borderColor: 'transparent' }}
+          title="Support Stationarr on Ko-fi"
+        >
+          ☕ Support
+        </a>
       </header>
 
       <main style={{ flex: 1, maxWidth: 860, width: '100%', margin: '0 auto', padding: '32px 24px', display: 'flex', flexDirection: 'column', gap: 24 }}>

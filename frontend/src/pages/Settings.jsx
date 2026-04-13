@@ -1,3 +1,4 @@
+import HeaderButtons from '../components/HeaderButtons.jsx';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Tv, Rss, Download, Upload } from 'lucide-react';
@@ -212,6 +213,15 @@ export default function Settings() {
             Stationarr is free and open source. Your support keeps it going.
           </p>
         </div>
+
+        {/* Support */}
+        <a href="https://ko-fi.com/rroy676" target="_blank" rel="noreferrer"
+            className="btn btn-ghost btn-sm"
+            style={{ color: '#FF5E5B', borderColor: 'transparent' }}
+            title="Support Stationarr on Ko-fi"
+          >
+            ☕ Support
+          </a>
 
         {/* Sign out */}
         <div>

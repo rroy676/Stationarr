@@ -1,3 +1,4 @@
+import HeaderButtons from './HeaderButtons.jsx';
 import ThemeToggle from './ThemeToggle.jsx';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Upload, Rss, Link2, Tv, LayoutGrid , Settings } from 'lucide-react';
@@ -41,6 +42,13 @@ export default function EditorHeader({ playlist, channelCount, enabledCount, onI
           <Link2 size={13} /> Playlist URLs
         </button>
         <ThemeToggle />
+        <a href="https://ko-fi.com/rroy676" target="_blank" rel="noreferrer"
+          className="btn btn-ghost btn-sm"
+          style={{ color: '#FF5E5B', borderColor: 'transparent' }}
+          title="Support Stationarr on Ko-fi"
+        >
+          ☕ Support
+        </a>
         <button className="btn btn-ghost btn-sm" onClick={() => nav('/settings')} title="Settings">
           <Settings size={13} />
         </button>
