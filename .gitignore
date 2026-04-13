@@ -1,8 +1,30 @@
+# Dependencies
 node_modules/
-data/
+
+# Build output
 public/
 dist/
+frontend/dist/
+
+# Data & secrets
+data/
 .env
 *.log
 logs/
+
+# OS
 .DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Docker
+.dockerignore
+
+# Backup files
+*.bak
+*.backup

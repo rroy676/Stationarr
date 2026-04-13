@@ -1,5 +1,9 @@
 # Stationarr
 
+![License](https://img.shields.io/badge/license-MIT-blue)
+![Docker](https://img.shields.io/badge/docker-ready-blue)
+![Node](https://img.shields.io/badge/node-20%2B-green)
+
 A self-hosted, open-source IPTV playlist and EPG manager. Import your M3U playlist, organise channels, match programme guide data from multiple sources, and serve a clean edited playlist directly to your IPTV player.
 
 ---
@@ -71,7 +75,7 @@ A self-hosted, open-source IPTV playlist and EPG manager. Import your M3U playli
 ## Quick start — Docker (recommended)
 
 ```bash
-git clone https://github.com/rroy676/Stationarr.git
+git clone https://github.com/YOUR_USERNAME/Stationarr.git
 cd Stationarr
 cp .env.example .env          # set JWT_SECRET to a long random string
 docker compose up -d
@@ -110,7 +114,7 @@ docker compose up -d
 - npm 9+
 
 ```bash
-git clone https://github.com/rroy676/Stationarr.git
+git clone https://github.com/YOUR_USERNAME/Stationarr.git
 cd Stationarr
 cp .env.example .env
 
@@ -246,7 +250,7 @@ Stationarr/
 
 ## Contributing
 
-PRs welcome. Please open an issue first for large changes.
+PRs welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 ## License
 

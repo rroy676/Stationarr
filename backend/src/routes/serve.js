@@ -1,7 +1,7 @@
 const router = require('express').Router();
 const db     = require('../db');
 const { exportM3U } = require('../utils/m3u');
-const { mergeXMLTVStream, proxyEPG } = require('../utils/xmltv-merge');
+const { mergeXMLTV, proxyEPG } = require('../utils/xmltv-merge');
 
 // GET /api/serve/:slug/playlist.m3u
 router.get('/:slug/playlist.m3u', (req, res) => {
@@ -65,7 +65,8 @@ async function buildAndSendEPG(pl, res) {
   const uncached = sources.filter(s => !s.cache_path && s.url);
 
   if (cached.length > 0) {
-    return mergeXMLTVStream(cached.map(s => s.cache_path), epgIds, timeshiftMap, res);
+    const xml = await mergeXMLTV(cached.map(s => s.cache_path), epgIds, timeshiftMap);
+    return res.send(xml);
   }
 
   if (uncached.length === 1) return proxyEPG(uncached[0].url, res);

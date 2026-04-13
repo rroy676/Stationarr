@@ -6,6 +6,7 @@ const DATA_DIR = process.env.DATA_DIR || './data';
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
 // Support existing installs (streamarr.db) and new stationarr.db
+const fs = require('fs');
 const dbPath = (() => {
   const newPath  = path.join(DATA_DIR, 'stationarr.db');
   const oldPath  = path.join(DATA_DIR, 'streamarr.db');

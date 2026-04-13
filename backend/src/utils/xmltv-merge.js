@@ -26,63 +26,23 @@ async function mergeXMLTV(cachePaths, epgIds, timeshiftMap = {}) {
       const { channels, programmes } = await extractFromFile(cachePath, epgIds, filterAll, seenChannels, timeshiftMap);
       channelXml.push(...channels);
       programmeXml.push(...programmes);
-      // Free memory after each file
-      global.gc && global.gc();
     } catch (e) {
       console.error('[xmltv-merge] Error reading', cachePath, e.message);
     }
   }
 
   const body = [...channelXml, ...programmeXml].join('\n');
-  // Free arrays before building string
-  channelXml.length = 0;
-  programmeXml.length = 0;
   return `<?xml version="1.0" encoding="UTF-8"?>\n<tv generator-info-name="Stationarr">\n${body}\n</tv>`;
-}
-
-// Stream-based version — single pass, collects channels then streams programmes
-// Channels are small (just metadata) so storing them is fine
-// Programmes are large so we stream them directly
-async function mergeXMLTVStream(cachePaths, epgIds, timeshiftMap = {}, res) {
-  const filterAll    = !epgIds || epgIds.size === 0;
-  const seenChannels = new Set();
-  const allChannels  = []; // small - just <channel> metadata elements
-
-  res.write('<?xml version="1.0" encoding="UTF-8"?>\n<tv generator-info-name="Stationarr">\n');
-
-  // Single pass per file - collect channels (small), stream programmes immediately
-  // Programmes are streamed to response as parsed — no memory accumulation
-  // Channels are collected first (just metadata, ~1KB each) then written at start
-  for (const cachePath of cachePaths) {
-    if (!fs.existsSync(cachePath)) continue;
-    try {
-      await extractFromFile(
-        cachePath, epgIds, filterAll, seenChannels, timeshiftMap,
-        (ch)   => allChannels.push(ch),    // buffer channels (tiny)
-        (prog) => res.write(prog + '\n')  // stream programmes immediately
-      );
-    } catch (e) {
-      console.error('[xmltv-merge] Error', cachePath, e.message);
-    }
-  }
-
-  // XMLTV spec: channels must come before programmes
-  // Since we streamed programmes already, we close with channels appended
-  // Most clients (Kodi, TiviMate) handle mixed ordering fine
-  for (const ch of allChannels) res.write(ch + '\n');
-
-  res.write('</tv>');
-  res.end();
 }
 
 /**
  * Stream a file through SAX, extracting channel + programme XML strings
  * for the requested epgIds only.
  */
-function extractFromFile(filePath, epgIds, filterAll, seenChannels, timeshiftMap = {}, onChannel = null, onProgramme = null) {
+function extractFromFile(filePath, epgIds, filterAll, seenChannels, timeshiftMap = {}) {
   return new Promise((resolve, reject) => {
-    const channels   = onChannel   ? null : [];
-    const programmes = onProgramme ? null : [];
+    const channels   = [];
+    const programmes = [];
     const parser     = sax.createStream(true);
 
     let depth       = 0;
@@ -150,11 +110,9 @@ function extractFromFile(filePath, epgIds, filterAll, seenChannels, timeshiftMap
           // End of the element we were capturing
           if (captureTag === 'channel') {
             seenChannels.add(captureId);
-            if (onChannel) onChannel(`  ${buffer}`);
-            else channels.push(`  ${buffer}`);
+            channels.push(`  ${buffer}`);
           } else {
-            if (onProgramme) onProgramme(`  ${buffer}`);
-            else programmes.push(`  ${buffer}`);
+            programmes.push(`  ${buffer}`);
           }
           capturing = false;
           buffer    = '';
@@ -164,14 +122,13 @@ function extractFromFile(filePath, epgIds, filterAll, seenChannels, timeshiftMap
     });
 
     parser.on('error', () => { parser.resume?.(); });
-    parser.on('end',   () => resolve({ channels: channels || [], programmes: programmes || [] }));
+    parser.on('end',   () => resolve({ channels, programmes }));
     parser.on('error', reject);
 
-    // Stream from disk — never loads full file into RAM
-    const isGzip = filePath.endsWith('.gz') ||
-      (() => { try { const b = Buffer.alloc(2); const fd = fs.openSync(filePath,'r'); fs.readSync(fd,b,0,2,0); fs.closeSync(fd); return b[0]===0x1f&&b[1]===0x8b; } catch { return false; } })();
+    const fileBuffer = fs.readFileSync(filePath);
+    const isGzip     = fileBuffer[0] === 0x1f && fileBuffer[1] === 0x8b;
+    const source     = Readable.from(fileBuffer);
 
-    const source = fs.createReadStream(filePath);
     if (isGzip) {
       source.pipe(zlib.createGunzip()).pipe(parser);
     } else {
@@ -214,17 +171,14 @@ function openTagWithAttrs(name, attributes, isSelfClosing) {
   const attrs = Object.entries(attributes)
     .map(([k, v]) => ` ${k}="${esc(v)}"`)
     .join('');
-  // Never self-closing — let closetag handle it
-  return `<${name}${attrs}>`;
+  return isSelfClosing ? `<${name}${attrs}/>` : `<${name}${attrs}>`;
 }
 
 function openTag(node) {
   const attrs = Object.entries(node.attributes)
     .map(([k, v]) => ` ${k}="${esc(v)}"`)
     .join('');
-  // Never use self-closing — source data sometimes has both /> and </tag>
-  // which would produce invalid XML. Always use open tag; closetag event handles closing.
-  return `<${node.name}${attrs}>`;
+  return node.isSelfClosing ? `<${node.name}${attrs}/>` : `<${node.name}${attrs}>`;
 }
 
 function esc(s) {
@@ -235,4 +189,4 @@ function esc(s) {
     .replace(/"/g, '&quot;');
 }
 
-module.exports = { mergeXMLTV, mergeXMLTVStream, saveEPGCache, deleteEPGCache, proxyEPG };
+module.exports = { mergeXMLTV, saveEPGCache, deleteEPGCache, proxyEPG };
