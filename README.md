@@ -1,7 +1,3 @@
-<p align="center">
-  <img src="frontend/public/favicon.svg" width="80" height="80" alt="Stationarr logo" />
-</p>
-
 <h1 align="center">
   <span style="color:#f0a500">Station</span>arr
 </h1>
