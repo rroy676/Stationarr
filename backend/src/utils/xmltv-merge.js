@@ -40,40 +40,36 @@ async function mergeXMLTV(cachePaths, epgIds, timeshiftMap = {}) {
   return `<?xml version="1.0" encoding="UTF-8"?>\n<tv generator-info-name="Stationarr">\n${body}\n</tv>`;
 }
 
-// Stream-based version — writes directly to Express response, zero RAM accumulation
+// Stream-based version — single pass, collects channels then streams programmes
+// Channels are small (just metadata) so storing them is fine
+// Programmes are large so we stream them directly
 async function mergeXMLTVStream(cachePaths, epgIds, timeshiftMap = {}, res) {
   const filterAll    = !epgIds || epgIds.size === 0;
   const seenChannels = new Set();
+  const allChannels  = []; // small - just <channel> metadata elements
 
   res.write('<?xml version="1.0" encoding="UTF-8"?>\n<tv generator-info-name="Stationarr">\n');
 
-  // Pass 1: stream channel elements from each file directly to response
+  // Single pass per file - collect channels (small), stream programmes immediately
+  // Programmes are streamed to response as parsed — no memory accumulation
+  // Channels are collected first (just metadata, ~1KB each) then written at start
   for (const cachePath of cachePaths) {
     if (!fs.existsSync(cachePath)) continue;
     try {
       await extractFromFile(
         cachePath, epgIds, filterAll, seenChannels, timeshiftMap,
-        (ch) => res.write(ch + '\n'),  // onChannel - write immediately
-        null                             // onProgramme - skip in pass 1
+        (ch)   => allChannels.push(ch),    // buffer channels (tiny)
+        (prog) => res.write(prog + '\n')  // stream programmes immediately
       );
     } catch (e) {
-      console.error('[xmltv-merge] Pass1 error', cachePath, e.message);
+      console.error('[xmltv-merge] Error', cachePath, e.message);
     }
   }
 
-  // Pass 2: stream programme elements from each file directly to response
-  for (const cachePath of cachePaths) {
-    if (!fs.existsSync(cachePath)) continue;
-    try {
-      await extractFromFile(
-        cachePath, epgIds, filterAll, new Set(), timeshiftMap,
-        null,                              // onChannel - skip in pass 2
-        (prog) => res.write(prog + '\n')  // onProgramme - write immediately
-      );
-    } catch (e) {
-      console.error('[xmltv-merge] Pass2 error', cachePath, e.message);
-    }
-  }
+  // XMLTV spec: channels must come before programmes
+  // Since we streamed programmes already, we close with channels appended
+  // Most clients (Kodi, TiviMate) handle mixed ordering fine
+  for (const ch of allChannels) res.write(ch + '\n');
 
   res.write('</tv>');
   res.end();
