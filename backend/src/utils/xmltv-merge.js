@@ -214,14 +214,17 @@ function openTagWithAttrs(name, attributes, isSelfClosing) {
   const attrs = Object.entries(attributes)
     .map(([k, v]) => ` ${k}="${esc(v)}"`)
     .join('');
-  return isSelfClosing ? `<${name}${attrs}/>` : `<${name}${attrs}>`;
+  // Never self-closing — let closetag handle it
+  return `<${name}${attrs}>`;
 }
 
 function openTag(node) {
   const attrs = Object.entries(node.attributes)
     .map(([k, v]) => ` ${k}="${esc(v)}"`)
     .join('');
-  return node.isSelfClosing ? `<${node.name}${attrs}/>` : `<${node.name}${attrs}>`;
+  // Never use self-closing — source data sometimes has both /> and </tag>
+  // which would produce invalid XML. Always use open tag; closetag event handles closing.
+  return `<${node.name}${attrs}>`;
 }
 
 function esc(s) {
