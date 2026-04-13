@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import HeaderButtons from '../components/HeaderButtons.jsx';
 import { useNavigate } from 'react-router-dom';
 import { Plus, List, Trash2, ExternalLink, LogOut, Settings, Tv, Shield, Pencil, RefreshCw, Clock, Copy, Filter } from 'lucide-react';
 import ThemeToggle from '../components/ThemeToggle.jsx';

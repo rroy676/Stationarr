@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
+import HeaderButtons from '../components/HeaderButtons.jsx';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, RefreshCw, Clock, Tv, ChevronLeft, ChevronRight, Search, X, Layers, List, Settings } from 'lucide-react';
 import ThemeToggle from '../components/ThemeToggle.jsx';
