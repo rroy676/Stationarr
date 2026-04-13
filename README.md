@@ -1,9 +1,23 @@
-# Stationarr
+<p align="center">
+  <img src="frontend/public/favicon.svg" width="80" height="80" alt="Stationarr logo" />
+</p>
 
-![License](https://img.shields.io/badge/license-MIT-blue)
-![Docker](https://img.shields.io/badge/docker-ready-blue)
-![Node](https://img.shields.io/badge/node-20%2B-green)
-[![Ko-fi](https://img.shields.io/badge/Ko--fi-support-FF5E5B?logo=ko-fi&logoColor=white)](https://ko-fi.com/rroy676)
+<h1 align="center">
+  <span style="color:#f0a500">Station</span>arr
+</h1>
+
+<p align="center">
+  <strong>Self-hosted IPTV playlist and EPG manager</strong>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/license-MIT-blue" alt="License"/>
+  <img src="https://img.shields.io/badge/docker-ready-blue" alt="Docker"/>
+  <img src="https://img.shields.io/badge/node-20%2B-green" alt="Node"/>
+  <a href="https://ko-fi.com/rroy676"><img src="https://img.shields.io/badge/Ko--fi-support-FF5E5B?logo=ko-fi&logoColor=white" alt="Ko-fi"/></a>
+</p>
+
+---
 
 A self-hosted, open-source IPTV playlist and EPG manager. Import your M3U playlist, organise channels, match programme guide data from multiple sources, and serve a clean edited playlist directly to your IPTV player.
 
@@ -246,6 +260,18 @@ Stationarr/
 ├── Dockerfile
 └── ecosystem.config.js       PM2 config for bare-metal deployment
 ```
+
+---
+
+## Support the Project
+
+Stationarr is free and open source, built and maintained in spare time. If it's useful to you, consider buying me a coffee — it helps cover server costs and keeps development going.
+
+<p align="center">
+  <a href="https://ko-fi.com/rroy676" target="_blank">
+    <img src="https://ko-fi.com/img/githubbutton_sm.svg" alt="Support on Ko-fi"/>
+  </a>
+</p>
 
 ---
 
