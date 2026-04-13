@@ -40,32 +40,38 @@ async function mergeXMLTV(cachePaths, epgIds, timeshiftMap = {}) {
   return `<?xml version="1.0" encoding="UTF-8"?>\n<tv generator-info-name="Stationarr">\n${body}\n</tv>`;
 }
 
-// Stream-based version that writes directly to an Express response
+// Stream-based version — writes directly to Express response, zero RAM accumulation
 async function mergeXMLTVStream(cachePaths, epgIds, timeshiftMap = {}, res) {
   const filterAll    = !epgIds || epgIds.size === 0;
   const seenChannels = new Set();
 
   res.write('<?xml version="1.0" encoding="UTF-8"?>\n<tv generator-info-name="Stationarr">\n');
 
-  // Write channels first from all sources
+  // Pass 1: stream channel elements from each file directly to response
   for (const cachePath of cachePaths) {
     if (!fs.existsSync(cachePath)) continue;
     try {
-      const { channels } = await extractFromFile(cachePath, epgIds, filterAll, seenChannels, timeshiftMap);
-      for (const ch of channels) res.write(ch + '\n');
+      await extractFromFile(
+        cachePath, epgIds, filterAll, seenChannels, timeshiftMap,
+        (ch) => res.write(ch + '\n'),  // onChannel - write immediately
+        null                             // onProgramme - skip in pass 1
+      );
     } catch (e) {
-      console.error('[xmltv-merge] Error reading channels', cachePath, e.message);
+      console.error('[xmltv-merge] Pass1 error', cachePath, e.message);
     }
   }
 
-  // Write programmes from all sources
+  // Pass 2: stream programme elements from each file directly to response
   for (const cachePath of cachePaths) {
     if (!fs.existsSync(cachePath)) continue;
     try {
-      const { programmes } = await extractFromFile(cachePath, epgIds, filterAll, new Set(), timeshiftMap);
-      for (const p of programmes) res.write(p + '\n');
+      await extractFromFile(
+        cachePath, epgIds, filterAll, new Set(), timeshiftMap,
+        null,                              // onChannel - skip in pass 2
+        (prog) => res.write(prog + '\n')  // onProgramme - write immediately
+      );
     } catch (e) {
-      console.error('[xmltv-merge] Error reading programmes', cachePath, e.message);
+      console.error('[xmltv-merge] Pass2 error', cachePath, e.message);
     }
   }
 
@@ -77,10 +83,10 @@ async function mergeXMLTVStream(cachePaths, epgIds, timeshiftMap = {}, res) {
  * Stream a file through SAX, extracting channel + programme XML strings
  * for the requested epgIds only.
  */
-function extractFromFile(filePath, epgIds, filterAll, seenChannels, timeshiftMap = {}) {
+function extractFromFile(filePath, epgIds, filterAll, seenChannels, timeshiftMap = {}, onChannel = null, onProgramme = null) {
   return new Promise((resolve, reject) => {
-    const channels   = [];
-    const programmes = [];
+    const channels   = onChannel   ? null : [];
+    const programmes = onProgramme ? null : [];
     const parser     = sax.createStream(true);
 
     let depth       = 0;
@@ -148,9 +154,11 @@ function extractFromFile(filePath, epgIds, filterAll, seenChannels, timeshiftMap
           // End of the element we were capturing
           if (captureTag === 'channel') {
             seenChannels.add(captureId);
-            channels.push(`  ${buffer}`);
+            if (onChannel) onChannel(`  ${buffer}`);
+            else channels.push(`  ${buffer}`);
           } else {
-            programmes.push(`  ${buffer}`);
+            if (onProgramme) onProgramme(`  ${buffer}`);
+            else programmes.push(`  ${buffer}`);
           }
           capturing = false;
           buffer    = '';
@@ -160,7 +168,7 @@ function extractFromFile(filePath, epgIds, filterAll, seenChannels, timeshiftMap
     });
 
     parser.on('error', () => { parser.resume?.(); });
-    parser.on('end',   () => resolve({ channels, programmes }));
+    parser.on('end',   () => resolve({ channels: channels || [], programmes: programmes || [] }));
     parser.on('error', reject);
 
     // Stream from disk — never loads full file into RAM
