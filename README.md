@@ -1,6 +1,8 @@
-<h1 align="center">
-  <span style="color:#f0a500">Station</span>arr
-</h1>
+<p align="center">
+  <img src="frontend/public/favicon.svg" width="80" height="80" alt="Stationarr logo" />
+</p>
+
+<h1 align="center">Stationarr</h1>
 
 <p align="center">
   <strong>Self-hosted IPTV playlist and EPG manager</strong>
@@ -15,7 +17,7 @@
 
 ---
 
-A self-hosted, open-source IPTV playlist and EPG manager. Import your M3U playlist, organise channels, match programme guide data from multiple sources, and serve a clean edited playlist directly to your IPTV player.
+Import your M3U playlist, organise channels, match programme guide data from multiple sources, and serve a clean edited playlist directly to your IPTV player.
 
 ---
 
@@ -56,15 +58,16 @@ A self-hosted, open-source IPTV playlist and EPG manager. Import your M3U playli
 - Filter channels by enabled status or EPG mapping
 - Virtual scrolling — handles 5000+ channel playlists smoothly
 - Group sidebar with eye toggle (enable/disable all channels in a group at once)
-- Draggable sidebar width
 
 ### EPG (Electronic Programme Guide)
 - Multiple XMLTV sources with drag-to-reorder priority
 - Auto-match channels to EPG by TVG ID — choose which source to match from
+- Primary and backup EPG ID per channel (fallback when primary has no data)
 - Searchable EPG channel picker with source filter per channel
 - Timeshift per channel (slider + manual input)
-- EPG preview in channel panel (next 6 hours, now-playing progress bar)
+- EPG preview in channel panel
 - Memory-efficient SAX streaming parser — handles 100MB+ XMLTV files without RAM spikes
+- Gzip-compressed EPG output — reduces transfer size ~90% for fast player loading
 - Built-in free EPG source library (EPG.pw, i.mjh.nz, xmltv.net) for 30+ countries
 
 ### iptv-org/epg scraper integration
@@ -79,64 +82,63 @@ A self-hosted, open-source IPTV playlist and EPG manager. Import your M3U playli
 - Search by channel name or programme title
 - Filter by group, switch playlists without leaving the guide
 - Day navigation (Today, Tomorrow, day-of-week buttons)
-- Date headers at midnight boundaries when scrolling to a new day
 - Adjust timeshift per channel directly from the guide
 - Timezone selector — applied to all time displays
 
 ### Logo management
 - Auto-match logos from EPG sources
 - Logo browser — searches [tv-logo/tv-logos](https://github.com/tv-logo/tv-logos) (10,000+ logos)
-- Auto-saves logo when selected, updates channel list immediately
 
 ### Output
 - Hosted M3U URL per playlist — use directly in any IPTV player
-- Hosted EPG URL (merged XMLTV from all mapped sources with timeshift applied)
+- Hosted EPG URL — merged XMLTV from all mapped sources with timeshift applied, gzip compressed
 - Xtream Codes API (`player_api.php`, live stream redirect, `xmltv.php`)
 
 ### Multi-user
 - JWT authentication — first registered account is automatically admin
-- Admin panel — user management, stats, password reset
+- Admin panel — user management, password reset
 - Registration can be disabled after setup
 
 ### UI
 - Dark mode, light mode, auto (follows system preference)
-- Theme toggle in every page header
-- Responsive layout
+- Backup and restore — export all playlists and settings as JSON
 
 ---
 
 ## Quick start — Docker (recommended)
 
+**Option A — Docker Hub (easiest):**
 ```bash
-git clone https://github.com/YOUR_USERNAME/Stationarr.git
+docker run -d \
+  --name stationarr \
+  -p 3000:3000 \
+  -e JWT_SECRET=change-me-to-something-random \
+  -v stationarr_data:/app/data \
+  rroy676/stationarr:latest
+```
+
+**Option B — Docker Compose (recommended for production):**
+```bash
+git clone https://github.com/rroy676/Stationarr.git
 cd Stationarr
 cp .env.example .env          # set JWT_SECRET to a long random string
 docker compose up -d
 ```
 
-Open `http://localhost:3005` and register your account. The first account is automatically admin.
+Open `http://localhost:3000` and register your account. The first account is automatically admin.
 
 ### With iptv-org/epg scraper (optional)
 
-The EPG scraper lets you fetch programme data for specific channels from 100+ websites. It runs as a separate Docker container.
+The EPG scraper lets you fetch programme data for specific channels from 100+ websites. It runs as a separate Docker container using the official [iptv-org/epg](https://github.com/iptv-org/epg) image.
 
-**Step 1 — Build the scraper image (one time):**
-```bash
-cd /tmp
-git clone --depth 1 https://github.com/iptv-org/epg.git iptv-epg
-cd iptv-epg
-docker build -t iptv-org-epg:local .
-cd /path/to/Stationarr
-```
+**Step 1 — Uncomment the `epg:` block in `docker-compose.yml`**
 
-**Step 2 — Uncomment the `epg:` block in `docker-compose.yml`**
-
-**Step 3 — Restart:**
+**Step 2 — Restart:**
 ```bash
 docker compose up -d
 ```
 
-**Step 4 — Go to Settings → EPG Scraper** to add channels and run the scraper from the UI.
+**Step 3 — Go to Settings → EPG Scraper** to add channels and run the scraper from the UI.
 
 ---
 
@@ -147,7 +149,7 @@ docker compose up -d
 - npm 9+
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/Stationarr.git
+git clone https://github.com/rroy676/Stationarr.git
 cd Stationarr
 cp .env.example .env
 
@@ -198,7 +200,7 @@ After importing a playlist, each user gets unique URLs:
 | URL | Description |
 |---|---|
 | `http://yourhost/api/serve/{slug}/playlist.m3u` | Edited M3U playlist |
-| `http://yourhost/api/serve/{slug}/epg.xml` | Merged EPG (XMLTV) |
+| `http://yourhost/api/serve/{slug}/epg.xml` | Merged EPG (XMLTV, gzip compressed) |
 | `http://yourhost/api/serve/{slug}/xtream` | Xtream Codes API base URL |
 
 Add these directly to your IPTV player (TiviMate, IPTV Smarters, Kodi, VLC, etc.)
@@ -246,22 +248,23 @@ Stationarr/
 │   │   ├── playlists.js      Playlist CRUD + import + clone
 │   │   ├── channels.js       Channel CRUD + reorder + bulk ops
 │   │   ├── epg.js            EPG source management + fetch + match
-│   │   ├── guide.js          TV Guide API with in-memory caching
+│   │   ├── guide.js          TV Guide API with caching
 │   │   ├── scraper.js        iptv-org/epg scraper integration
 │   │   ├── serve.js          Public hosted M3U + EPG + Xtream output
+│   │   ├── backup.js         Backup and restore user data
 │   │   └── xtream.js         Xtream Codes API compatibility
 │   └── utils/
 │       ├── m3u.js            Parse + export M3U
-│       ├── xmltv.js          SAX streaming XMLTV parser (memory efficient)
+│       ├── xmltv.js          SAX streaming XMLTV parser
 │       ├── xmltv-merge.js    Multi-source XMLTV merge with timeshift
 │       └── epg-reader.js     On-demand programme extraction for guide
 ├── frontend/src/
 │   ├── pages/
-│   │   ├── Dashboard.jsx     Playlist list + clone/duplicate
+│   │   ├── Dashboard.jsx     Playlist list
 │   │   ├── Editor.jsx        Channel editor
-│   │   ├── Guide.jsx         TV Guide grid with progressive loading
-│   │   ├── Settings.jsx      Timezone + theme + password
-│   │   ├── Scraper.jsx       EPG scraper management UI
+│   │   ├── Guide.jsx         TV Guide grid
+│   │   ├── Settings.jsx      Timezone, theme, backup, password
+│   │   ├── Scraper.jsx       EPG scraper management
 │   │   └── Admin.jsx         User management (admin only)
 │   └── components/
 │       ├── ChannelTable.jsx  Virtual-scrolling channel list
@@ -271,9 +274,11 @@ Stationarr/
 │       ├── ImportModal.jsx   Import + clone playlist modal
 │       ├── IPTVOrgBrowser.jsx Free EPG source library browser
 │       ├── LogoBrowser.jsx   tv-logos logo search
-│       └── ThemeToggle.jsx   Dark/light/auto theme switcher
+│       ├── ThemeToggle.jsx   Dark/light/auto theme switcher
+│       └── HeaderButtons.jsx Ko-fi + GitHub links
+├── docs/screenshots/         README screenshots
 ├── epg/channels.xml          iptv-org/epg scraper channel config
-├── nginx/stationarr.conf      Nginx reverse proxy config
+├── nginx/stationarr.conf     Nginx reverse proxy config
 ├── docker-compose.yml
 ├── Dockerfile
 └── ecosystem.config.js       PM2 config for bare-metal deployment

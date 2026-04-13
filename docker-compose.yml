@@ -26,11 +26,9 @@ services:
   # Uncomment to enable. Go to Settings → EPG Scraper to manage.
   #
   # epg:
-  #   image: iptv-org-epg:local
+  #   image: ghcr.io/iptv-org/epg:latest
   #   container_name: stationarr-epg
   #   restart: unless-stopped
-  #   ports:
-  #     - "4001:3000"
   #   volumes:
   #     - scraper_shared:/epg/public
   #   environment:
