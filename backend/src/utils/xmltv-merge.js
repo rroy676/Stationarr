@@ -84,7 +84,7 @@ function extractFromFile(filePath, epgIds, filterAll, seenChannels, timeshiftMap
                 const d = parseXMLTVTime(attrs.stop);
                 if (d) attrs.stop = toXMLTVTime(d, shift);
               }
-              buffer = openTagWithAttrs(node.name, attrs, node.isSelfClosing);
+              buffer = openTagWithAttrs(node.name, attrs);
             } else {
               buffer = openTag(node);
             }
@@ -167,18 +167,22 @@ async function proxyEPG(url, res) {
   r.body.pipe(res);
 }
 
-function openTagWithAttrs(name, attributes, isSelfClosing) {
+function openTagWithAttrs(name, attributes) {
   const attrs = Object.entries(attributes)
     .map(([k, v]) => ` ${k}="${esc(v)}"`)
     .join('');
-  return isSelfClosing ? `<${name}${attrs}/>` : `<${name}${attrs}>`;
+  // Never self-close: SAX fires closetag even for self-closing elements,
+  // so <foo/> + </foo> would produce <foo/></foo> — invalid XML that breaks
+  // strict parsers like ChannelsDVR. Always use explicit open tag; closetag handles the close.
+  return `<${name}${attrs}>`;
 }
 
 function openTag(node) {
   const attrs = Object.entries(node.attributes)
     .map(([k, v]) => ` ${k}="${esc(v)}"`)
     .join('');
-  return node.isSelfClosing ? `<${node.name}${attrs}/>` : `<${node.name}${attrs}>`;
+  // Never self-close — see openTagWithAttrs comment above.
+  return `<${node.name}${attrs}>`;
 }
 
 function esc(s) {
