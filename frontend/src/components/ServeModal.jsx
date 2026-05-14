@@ -3,6 +3,16 @@ import { Copy, Check, ExternalLink, RefreshCw } from 'lucide-react';
 import { playlists as api } from '../api.js';
 import { useToast } from '../context.jsx';
 
+function fallbackCopy(text, done) {
+  const el = document.createElement('textarea');
+  el.value = text;
+  el.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0';
+  document.body.appendChild(el);
+  el.focus(); el.select();
+  try { document.execCommand('copy'); done(); } catch {}
+  document.body.removeChild(el);
+}
+
 export default function ServeModal({ playlist: initialPlaylist, onClose }) {
   const toast = useToast();
   const [playlist, setPlaylist] = useState(initialPlaylist);
@@ -18,9 +28,12 @@ export default function ServeModal({ playlist: initialPlaylist, onClose }) {
   const xtreamEpgUrl = `${base}/xmltv.php?username=${playlist.xtream_user}&password=${playlist.xtream_pass}`;
 
   const copy = (text, key) => {
-    navigator.clipboard.writeText(text);
-    setCopied(key);
-    setTimeout(() => setCopied(''), 2000);
+    const done = () => { setCopied(key); setTimeout(() => setCopied(''), 2000); };
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
+    } else {
+      fallbackCopy(text, done);
+    }
   };
 
   const regenCreds = async () => {

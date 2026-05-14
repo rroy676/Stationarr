@@ -234,6 +234,83 @@ Stationarr includes a built-in browser of free public EPG sources. Go to **EPG S
 
 ---
 
+## Usage guide
+
+### 1. Getting started
+
+1. Open Stationarr in your browser and register an account. The **first account is automatically admin**.
+2. Click **New playlist** on the Dashboard and give it a name (e.g. "My IPTV").
+3. Import your channels (see below), match EPG data, then grab your serve URLs from the **Serve** button.
+
+> Disable registration after setup: set `REGISTRATION_OPEN=false` in your `.env` and restart.
+
+---
+
+### 2. Importing channels
+
+**From a URL (M3U)**
+Open the playlist editor → click **Import → URL** → paste your provider's `.m3u` link → Fetch. Enable **Auto-refresh** in playlist settings to re-import on a schedule.
+
+**From a file**
+Import → File → select a local `.m3u` or `.m3u8` file.
+
+**Xtream Codes / provider login**
+Import → Xtream → enter server address, username, password. All streams are fetched via the Xtream API.
+
+**Organising**
+- Drag rows to reorder. Shift+click / Ctrl+click to multi-select.
+- Use the **group sidebar** to filter by category or toggle all channels in a group.
+- Bulk toolbar: enable, disable, delete, or reassign groups for selected channels.
+
+**Duplicating / filtering**
+On the Dashboard, use **Duplicate** to clone a playlist, or **Create filtered copy** to extract channels matching a keyword or group into a new playlist.
+
+---
+
+### 3. EPG setup
+
+**Add a source**
+In the playlist editor → **EPG tab** → **Add source** → enter a name and XMLTV URL → **Fetch & cache**. Large files (100MB+) are handled with SAX streaming — no RAM spikes.
+
+**Auto-match**
+Click **Auto-match** after fetching. Stationarr tries to match channels by `tvg-id`, then normalised name, then fuzzy name (strips HD/SD/4K suffixes). Matched channels show guide data immediately.
+
+**Manual match**
+Click any channel row → use the **EPG search** box in the panel → click an entry to assign it. You can also set a **backup EPG ID** per channel as a fallback.
+
+**Timeshift**
+If a channel's guide data is offset by a fixed number of hours, set **Timeshift** in the channel panel (positive or negative minutes). The EPG output adjusts all programme times accordingly.
+
+**Auto-refresh EPG**
+In EPG source settings, enable **Auto-refresh** and pick an interval — Stationarr re-fetches the XMLTV file on a schedule.
+
+**ChannelsDVR**
+Add your Stationarr **M3U URL** as an M3U source in ChannelsDVR. Add your **EPG URL** separately under Guide → Guide Data Sources. ChannelsDVR matches guide data to channels using the `tvg-id` attribute — make sure channels have EPG entries assigned in Stationarr.
+
+---
+
+### 4. Serving to players
+
+Click **Serve** on any playlist to get your personal URLs:
+
+| URL | Use for |
+|---|---|
+| `…/playlist.m3u` | Any M3U-compatible player |
+| `…/epg.xml` | Guide data (XMLTV, gzip compressed) |
+| `…/xtream` | Xtream Codes API base URL |
+
+**TiviMate** — Add Playlist → M3U URL. Then in playlist settings → EPG source → paste EPG URL.
+
+**Kodi (PVR IPTV Simple)** — Install the PVR IPTV Simple Client add-on. Set M3U Playlist URL and XMLTV URL in its settings.
+
+**ChannelsDVR** — Settings → Sources → Add Source → M3U Playlist. Guide → Add Guide Source for EPG.
+
+**VLC** — Media → Open Network Stream → paste the M3U URL.
+
+> Make sure `BASE_URL` in your `.env` points to an address reachable by your players. Use a local IP for LAN-only setups, or your public domain/IP for remote access.
+
+---
+
 ## Project structure
 
 ```
@@ -265,7 +342,8 @@ Stationarr/
 │   │   ├── Guide.jsx         TV Guide grid
 │   │   ├── Settings.jsx      Timezone, theme, backup, password
 │   │   ├── Scraper.jsx       EPG scraper management
-│   │   └── Admin.jsx         User management (admin only)
+│   │   ├── Admin.jsx         User management (admin only)
+│   │   └── Help.jsx          In-app help and documentation
 │   └── components/
 │       ├── ChannelTable.jsx  Virtual-scrolling channel list
 │       ├── ChannelPanel.jsx  Channel detail + EPG source picker

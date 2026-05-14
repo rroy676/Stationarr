@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.0.3] — 2026-05-14
+
+### Added
+- In-app Help page (`/help`) covering Getting Started, Importing, EPG setup, and Serving to Players
+- Ko-fi support button and note on Help page
+- Detailed usage guide added to README
+
+### Fixed
+- Copy buttons in the Serve modal now work on plain HTTP (fallback from Clipboard API to execCommand)
+
+## [1.0.2] — 2026-05-14
+
+### Fixed
+- Merged EPG output no longer produces malformed XML (`<icon/></icon>`) from self-closing tags in source XMLTV files — fixes EPG not populating in ChannelsDVR and other strict XML parsers
+
 ## [1.0.0] — Initial release
 
 ### Features

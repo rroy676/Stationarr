@@ -9,6 +9,7 @@ import Settings    from './pages/Settings.jsx';
 import Admin       from './pages/Admin.jsx';
 import Guide       from './pages/Guide.jsx';
 import Scraper     from './pages/Scraper.jsx';
+import Help        from './pages/Help.jsx';
 
 function Guard({ children }) {
   const { user, ready } = useAuth();
@@ -39,6 +40,7 @@ export default function App() {
             <Route path="/admin"    element={<Guard><Admin /></Guard>} />
             <Route path="/guide/:id"   element={<Guard><Guide /></Guard>} />
             <Route path="/scraper"     element={<Guard><Scraper /></Guard>} />
+            <Route path="/help"        element={<Guard><Help /></Guard>} />
             <Route path="*"         element={<Navigate to="/" replace />} />
           </Routes>
         </BrowserRouter>
