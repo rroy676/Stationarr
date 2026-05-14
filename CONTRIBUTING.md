@@ -47,4 +47,4 @@ The backend runs on port 3000 (set in .env).
 ## Reporting security issues
 
 Please do not open public issues for security vulnerabilities.
-Email the maintainer directly instead.
+See [SECURITY.md](SECURITY.md) for the responsible disclosure process.

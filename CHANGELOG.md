@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.0.5] — 2026-05-14
+
+### Added
+- Version number displayed in Settings → About section
+- Update notification banner — appears when a newer GitHub release is available; dismissible per version
+- `/api/health` now returns the real version from `package.json` instead of a hardcoded string
+
+### Fixed
+- `bug_report.md` issue template: added credentials warning, `labels: bug` frontmatter, "Actual behaviour" field
+- `CONTRIBUTING.md`: security reporting section now links to `SECURITY.md` instead of "email maintainer"
+
 ## [1.0.4] — 2026-05-14
 
 ### Security

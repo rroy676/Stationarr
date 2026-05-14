@@ -1,5 +1,5 @@
 import HeaderButtons from '../components/HeaderButtons.jsx';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Tv, Rss, Download, Upload } from 'lucide-react';
 import { applyTheme, getTheme } from '../components/ThemeToggle.jsx';
@@ -20,6 +20,14 @@ export default function Settings() {
   const [form, setForm]     = useState({ current: '', next: '', confirm: '' });
   const [saving,    setSaving]    = useState(false);
   const [restoring, setRestoring] = useState(false);
+
+  const [version, setVersion] = useState(null);
+  useEffect(() => {
+    fetch('/api/health')
+      .then(r => r.json())
+      .then(d => { if (d.version) setVersion(d.version); })
+      .catch(() => {});
+  }, []);
 
   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
 
@@ -214,14 +222,25 @@ export default function Settings() {
           </p>
         </div>
 
-        {/* Support */}
-        <a href="https://ko-fi.com/rroy676" target="_blank" rel="noreferrer"
-            className="btn btn-ghost btn-sm"
-            style={{ color: '#FF5E5B', borderColor: 'transparent' }}
-            title="Support Stationarr on Ko-fi"
-          >
-            ☕ Support
-          </a>
+        {/* About */}
+        <div>
+          <h2 style={{ fontSize: 15, fontWeight: 600, marginBottom: 12 }}>About</h2>
+          <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <Row label="Version" value={version ? `v${version}` : '—'} />
+            <Row label="Source" value={
+              <a href="https://github.com/rroy676/Stationarr" target="_blank" rel="noreferrer"
+                style={{ color: 'var(--accent)' }}>
+                github.com/rroy676/Stationarr
+              </a>
+            } />
+            <Row label="Releases" value={
+              <a href="https://github.com/rroy676/Stationarr/releases" target="_blank" rel="noreferrer"
+                style={{ color: 'var(--accent)' }}>
+                Changelog &amp; releases
+              </a>
+            } />
+          </div>
+        </div>
 
         {/* Sign out */}
         <div>
