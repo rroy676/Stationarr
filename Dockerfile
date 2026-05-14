@@ -24,6 +24,7 @@ ENV DOCKER_API_VERSION=1.41
 # Copy pre-compiled node_modules — no build tools needed in final image
 COPY --from=backend-builder /app/node_modules ./node_modules
 COPY backend/src ./src
+COPY backend/package.json ./package.json
 COPY --from=frontend-builder /build/public ./public
 
 # Create data dir owned by the node user (non-root)
