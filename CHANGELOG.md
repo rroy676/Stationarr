@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.0.4] — 2026-05-14
+
+### Security
+- Upgraded base image from `node:20-alpine` to `node:22-alpine` — newer Alpine packages reduce CVE surface
+- Removed unused `wget` package from Docker image
+- Switched to `npm ci` in Dockerfile for reproducible, lockfile-pinned builds
+- Committed `package-lock.json` for backend and frontend
+- Container now runs as non-root `node` user (UID 1000)
+
 ## [1.0.3] — 2026-05-14
 
 ### Added
