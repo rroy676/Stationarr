@@ -17,7 +17,11 @@
 
 ---
 
-Import your M3U playlist, organise channels, match programme guide data from multiple sources, and serve a clean edited playlist directly to your IPTV player.
+Import legally obtained M3U playlists, organise channels, match XMLTV programme guide data from authorized or public sources, and serve a clean edited playlist directly to your IPTV player.
+
+Stationarr is a playlist and EPG management tool only. It does **not** provide, host, sell, distribute, promote, or recommend IPTV streams, subscriptions, copyrighted broadcasts, paid channel packages, or unauthorized access to television content. Users are responsible for ensuring that all playlists, EPG sources, provider credentials, stream URLs, logos, and metadata used with Stationarr are legally obtained and used in compliance with applicable laws and provider terms.
+
+See [DISCLAIMER.md](DISCLAIMER.md) before using or contributing to this project.
 
 ---
 
@@ -46,7 +50,7 @@ Import your M3U playlist, organise channels, match programme guide data from mul
 ## Features
 
 ### Playlist management
-- Import M3U via provider login (Xtream Codes), URL, or file upload
+- Import M3U via authorized provider login (Xtream Codes), URL, or file upload
 - Duplicate playlists or create filtered copies (by group, keyword, enabled channels)
 - Auto-refresh channels on a schedule
 - Xtream Codes API output — compatible with TiviMate, IPTV Smarters, etc.
@@ -140,6 +144,8 @@ docker compose up -d
 
 **Step 3 — Go to Settings → EPG Scraper** to add channels and run the scraper from the UI.
 
+> **Docker socket warning:** Some scraper-management workflows may require Docker socket access. Mounting `/var/run/docker.sock` gives the Stationarr container broad control over Docker on the host. Only enable it on trusted self-hosted systems. See [SECURITY.md](SECURITY.md).
+
 ---
 
 ## Quick start — Bare metal
@@ -205,6 +211,8 @@ After importing a playlist, each user gets unique URLs:
 
 Add these directly to your IPTV player (TiviMate, IPTV Smarters, Kodi, VLC, etc.)
 
+> **Privacy warning:** Hosted playlist, EPG, and Xtream URLs are bearer-style access URLs. Anyone with the URL may be able to access that output. Keep them private and rotate/regenerate credentials if exposed.
+
 ---
 
 ## Free EPG sources
@@ -249,13 +257,13 @@ Stationarr includes a built-in browser of free public EPG sources. Go to **EPG S
 ### 2. Importing channels
 
 **From a URL (M3U)**
-Open the playlist editor → click **Import → URL** → paste your provider's `.m3u` link → Fetch. Enable **Auto-refresh** in playlist settings to re-import on a schedule.
+Open the playlist editor → click **Import → URL** → paste your authorized provider's `.m3u` link → Fetch. Enable **Auto-refresh** in playlist settings to re-import on a schedule.
 
 **From a file**
-Import → File → select a local `.m3u` or `.m3u8` file.
+Import → File → select a local `.m3u` or `.m3u8` file that you are legally authorized to use.
 
 **Xtream Codes / provider login**
-Import → Xtream → enter server address, username, password. All streams are fetched via the Xtream API.
+Import → Xtream → enter server address, username, password for a provider account you are authorized to access. All streams are fetched via the Xtream API.
 
 **Organising**
 - Drag rows to reorder. Shift+click / Ctrl+click to multi-select.
@@ -308,6 +316,22 @@ Click **Serve** on any playlist to get your personal URLs:
 **VLC** — Media → Open Network Stream → paste the M3U URL.
 
 > Make sure `BASE_URL` in your `.env` points to an address reachable by your players. Use a local IP for LAN-only setups, or your public domain/IP for remote access.
+
+---
+
+## Roadmap
+
+Planned or possible improvements:
+
+- Regenerate hosted playlist and EPG slugs from the UI
+- Optional token support for served playlist and EPG URLs
+- Safer scraper-sidecar management without requiring Docker socket access
+- Docker healthcheck and improved container diagnostics
+- Automated build/test workflow with GitHub Actions
+- Import/export for individual playlists
+- Advanced duplicate detection and cleanup tools
+- Improved EPG conflict resolution and source priority controls
+- More tests around M3U parsing, XMLTV parsing, authentication, and public serve endpoints
 
 ---
 
@@ -379,6 +403,8 @@ Stationarr is free and open source, built and maintained in spare time. If it's 
 ## Contributing
 
 PRs welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+
+For security issues, please read [SECURITY.md](SECURITY.md) and do not open a public issue.
 
 ## License
 
