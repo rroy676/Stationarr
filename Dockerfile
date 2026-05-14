@@ -2,7 +2,7 @@ FROM node:22-alpine3.23 AS frontend-builder
 WORKDIR /build/frontend
 RUN apk upgrade --no-cache
 COPY frontend/package*.json ./
-RUN npm ci
+RUN npm install
 COPY frontend/ .
 RUN npm run build
 
@@ -12,7 +12,7 @@ FROM node:22-alpine3.23 AS backend-builder
 WORKDIR /app
 RUN apk add --no-cache python3 make g++
 COPY backend/package*.json ./
-RUN npm ci --omit=dev
+RUN npm install --omit=dev
 
 FROM node:22-alpine3.23
 WORKDIR /app
