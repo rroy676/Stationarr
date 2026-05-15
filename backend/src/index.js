@@ -3,6 +3,7 @@ const express   = require('express');
 const cors      = require('cors');
 const path      = require('path');
 const rateLimit = require('express-rate-limit');
+const { version } = require(path.join(__dirname, '../package.json'));
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -29,7 +30,7 @@ app.use('/api/scraper',   require('./routes/scraper'));
 // Xtream-compatible API — mounted at root
 app.use('/', require('./routes/xtream'));
 
-app.get('/api/health', (_req, res) => res.json({ ok: true, version: '1.0.0' }));
+app.get('/api/health', (_req, res) => res.json({ ok: true, version }));
 
 // Serve frontend (production)
 const DIST = path.join(__dirname, '../public');

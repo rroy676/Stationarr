@@ -71,5 +71,4 @@ This helps keep Stationarr open source while allowing commercial licenses for bu
 ## Reporting security issues
 
 Please do not open public issues for security vulnerabilities.
-
-Read [SECURITY.md](SECURITY.md) and email the maintainer directly instead.
+See [SECURITY.md](SECURITY.md) for the responsible disclosure process.

@@ -1,7 +1,12 @@
 ---
 name: Bug report
 about: Something isn't working
+labels: bug
+title: "[Bug]: "
 ---
+
+> ⚠️ **Do not include credentials, tokens, API keys, or personal URLs in this report.**
+> Redact any sensitive values before submitting.
 
 **Describe the bug**
 A clear description of what's wrong.
@@ -14,9 +19,13 @@ A clear description of what's wrong.
 **Expected behaviour**
 What you expected to happen.
 
+**Actual behaviour**
+What actually happens instead.
+
 **Environment**
-- Stationarr version / commit:
-- Docker version:
+- Stationarr version:
+- Deployment method: Docker / bare metal
+- Docker version (if applicable):
 - Browser (if UI issue):
 - IPTV player (if player issue):
 
@@ -24,3 +33,6 @@ What you expected to happen.
 ```
 docker compose logs stationarr --tail=50
 ```
+
+**Additional context**
+Any other relevant information (screenshots, config snippets with credentials removed, etc.).
