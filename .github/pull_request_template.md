@@ -10,6 +10,12 @@ Describe what this pull request changes.
 - [ ] Security improvement
 - [ ] Refactor or maintenance
 
+## Contributor terms
+
+- [ ] I have read and agree to [CONTRIBUTOR_TERMS.md](../CONTRIBUTOR_TERMS.md).
+- [ ] I confirm that I have the right to submit this contribution.
+- [ ] I understand that my contribution may be used under Stationarr's dual-license model: AGPL-3.0-or-later for community/open-source use and separate commercial license terms offered by the project copyright holder.
+
 ## Testing
 
 Describe how you tested the change.
