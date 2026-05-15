@@ -391,13 +391,19 @@ Stationarr/
 
 ## Support the Project
 
-Stationarr is free and open source, built and maintained in spare time. If it's useful to you, consider buying me a coffee — it helps cover server costs and keeps development going.
+Stationarr is free and open source software.
+
+If Stationarr is useful to you, voluntary donations are appreciated and help support ongoing development, testing, documentation, maintenance, hosting, and related project costs.
 
 <p align="center">
   <a href="https://ko-fi.com/rroy676" target="_blank">
     <img src="https://ko-fi.com/img/githubbutton_sm.svg" alt="Support on Ko-fi"/>
   </a>
 </p>
+
+Donations are optional and do not grant commercial license rights, warranty, support guarantees, priority support, custom development, or exceptions to the AGPL license.
+
+Commercial licenses are available separately for organizations that want to use, modify, host, embed, distribute, white-label, bundle, or sell Stationarr without AGPL obligations. See [COMMERCIAL-LICENSE.md](COMMERCIAL-LICENSE.md).
 
 ---
 
