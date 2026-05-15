@@ -10,6 +10,14 @@ The AGPL license allows you to use, study, modify, and share the software. If yo
 
 See [LICENSE](LICENSE) for the full AGPL license text.
 
+## Donations
+
+Stationarr may accept voluntary donations to support development, testing, documentation, maintenance, hosting, and related project costs.
+
+Donations are optional and do **not** grant commercial license rights, private-use exemptions, warranty, support guarantees, priority support, custom development, or exceptions to the AGPL license.
+
+A donation is voluntary support for the project. A commercial license is a separate written agreement that grants rights outside the AGPL license.
+
 ## Commercial license
 
 Commercial licenses are available for individuals, businesses, service providers, vendors, integrators, and organizations that want to use Stationarr under different terms.
