@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/license-MIT-blue" alt="License"/>
+  <img src="https://img.shields.io/badge/license-AGPL--3.0--or--later-blue" alt="License"/>
   <img src="https://img.shields.io/badge/docker-ready-blue" alt="Docker"/>
   <img src="https://img.shields.io/badge/node-20%2B-green" alt="Node"/>
   <a href="https://ko-fi.com/rroy676"><img src="https://img.shields.io/badge/Ko--fi-support-FF5E5B?logo=ko-fi&logoColor=white" alt="Ko-fi"/></a>
@@ -408,4 +408,8 @@ For security issues, please read [SECURITY.md](SECURITY.md) and do not open a pu
 
 ## License
 
-MIT
+Stationarr is licensed under the GNU Affero General Public License v3.0 or later (`AGPL-3.0-or-later`).
+
+You may use, study, modify, and share the software. If you modify Stationarr and make it available to users over a network, you must also make your modified source code available under the same license.
+
+See [LICENSE](LICENSE) for the full license text.
