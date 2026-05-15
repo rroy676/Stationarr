@@ -9,7 +9,8 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/license-MIT-blue" alt="License"/>
+  <img src="https://img.shields.io/badge/license-AGPL--3.0--or--later-blue" alt="License"/>
+  <img src="https://img.shields.io/badge/commercial-license%20available-green" alt="Commercial license available"/>
   <img src="https://img.shields.io/badge/docker-ready-blue" alt="Docker"/>
   <img src="https://img.shields.io/badge/node-20%2B-green" alt="Node"/>
   <a href="https://ko-fi.com/rroy676"><img src="https://img.shields.io/badge/Ko--fi-support-FF5E5B?logo=ko-fi&logoColor=white" alt="Ko-fi"/></a>
@@ -390,7 +391,9 @@ Stationarr/
 
 ## Support the Project
 
-Stationarr is free and open source, built and maintained in spare time. If it's useful to you, consider buying me a coffee — it helps cover server costs and keeps development going.
+Stationarr is free and open source software.
+
+If Stationarr is useful to you, voluntary donations are appreciated and help support ongoing development, testing, documentation, maintenance, hosting, and related project costs.
 
 <p align="center">
   <a href="https://ko-fi.com/rroy676" target="_blank">
@@ -398,14 +401,35 @@ Stationarr is free and open source, built and maintained in spare time. If it's 
   </a>
 </p>
 
+Donations are optional and do not grant commercial license rights, warranty, support guarantees, priority support, custom development, or exceptions to the AGPL license.
+
+Commercial licenses are available separately for organizations that want to use, modify, host, embed, distribute, white-label, bundle, or sell Stationarr without AGPL obligations. See [COMMERCIAL-LICENSE.md](COMMERCIAL-LICENSE.md).
+
 ---
 
 ## Contributing
 
 PRs welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
+By submitting a contribution, you agree to [CONTRIBUTOR_TERMS.md](CONTRIBUTOR_TERMS.md), which allows Stationarr to remain available under both AGPL community terms and separate commercial license terms.
+
 For security issues, please read [SECURITY.md](SECURITY.md) and do not open a public issue.
+
+## Copyright
+
+Copyright (C) 2026 Robert Roy and Stationarr Contributors.
+
+See [NOTICE](NOTICE) for copyright, licensing, and third-party rights information.
 
 ## License
 
-MIT
+Stationarr is dual-licensed:
+
+- **Community/open-source use:** GNU Affero General Public License v3.0 or later (`AGPL-3.0-or-later`)
+- **Commercial use:** separate commercial licenses are available for users or organizations that want to use, modify, embed, host, distribute, white-label, bundle, or sell Stationarr without AGPL obligations.
+
+Under the AGPL license, you may use, study, modify, and share the software. If you modify Stationarr and make it available to users over a network, you must also make your modified source code available under the same license.
+
+Commercial licenses are available by contacting **Robert Roy** at **rroy676@gmail.com**.
+
+See [LICENSE](LICENSE) for the full AGPL license text and [COMMERCIAL-LICENSE.md](COMMERCIAL-LICENSE.md) for commercial licensing information.
