@@ -16,6 +16,7 @@ export default function Editor() {
   const toast   = useToast();
 
   const [playlist,    setPlaylist]    = useState(null);
+  const [allPlaylists, setAllPlaylists] = useState([]);
   const [channels,    setChannels]    = useState([]);
   const [epgSources,  setEpgSources]  = useState([]);
   const [allEpgCh,    setAllEpgCh]    = useState([]);
@@ -37,8 +38,9 @@ export default function Editor() {
       chApi.list(id),
       epgApi.list(),
       plApi.list(),
-    ]).then(([pl, chs, sources]) => {
+    ]).then(([pl, chs, sources, playlists]) => {
       setPlaylist(pl);
+      setAllPlaylists(playlists);
       setChannels(chs);
       setEpgSources(sources);
       // Load EPG channels for all sources that have been fetched
@@ -135,6 +137,8 @@ export default function Editor() {
     setChannels(chs);
     const pl = await plApi.get(id);
     setPlaylist(pl);
+    const playlists = await plApi.list();
+    setAllPlaylists(playlists);
   }, [id]);
 
   // Auto-match EPG
