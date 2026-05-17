@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.6] — 2026-05-16
+
+### Fixed
+- Fixed a frontend crash when opening the Import M3U modal.
+- The editor now correctly stores and passes the playlist list to the import modal.
+- Playlist data is refreshed after imports so clone/import workflows stay current.
+- 
 ## [1.0.5] — 2026-05-14
 
 ### Added
