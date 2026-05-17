@@ -1,19 +1,19 @@
 {
   "name": "stationarr",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "private": true,
   "description": "Self-hosted M3U playlist and EPG manager",
   "scripts": {
-    "dev":           "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
-    "dev:backend":   "cd backend && npm run dev",
-    "dev:frontend":  "cd frontend && npm run dev",
-    "build":         "cd frontend && npm run build",
-    "start":         "cd backend && npm start",
-    "install:all":   "npm install && cd backend && npm install && cd ../frontend && npm install",
-    "docker:build":  "docker build -t stationarr .",
-    "docker:up":     "docker compose up -d",
-    "docker:logs":   "docker compose logs -f",
-    "docker:down":   "docker compose down"
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "build": "cd frontend && npm run build",
+    "start": "cd backend && npm start",
+    "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install",
+    "docker:build": "docker build -t stationarr .",
+    "docker:up": "docker compose up -d",
+    "docker:logs": "docker compose logs -f",
+    "docker:down": "docker compose down"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
