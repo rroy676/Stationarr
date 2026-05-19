@@ -156,7 +156,7 @@ docker compose up -d
 
 > **Docker socket warning:** Some scraper-management workflows may require Docker socket access. Mounting `/var/run/docker.sock` gives the Stationarr container broad control over Docker on the host. Only enable it on trusted self-hosted systems. See [SECURITY.md](SECURITY.md).
 >
-> **First run behaviour (important):** If Docker socket access is not mounted, Stationarr cannot trigger the sidecar immediately. On fresh installs, `guide.xml` may not exist yet and will return `404` until the sidecar cron job runs (default every 6 hours) or you run the sidecar manually (`docker exec ... npm run grab -- --channels=/epg/public/channels.xml`).
+> **First run behaviour (important):** If Docker socket access is not mounted, Stationarr cannot trigger the sidecar immediately. On fresh installs, `guide.xml` may not exist yet and will return `404` until the sidecar cron job runs (default every 6 hours) or you run the sidecar manually (`docker exec ... npm run grab -- --channels=/epg/public/channels.xml --output=/epg/public/guide.xml`).
 
 ### First-run notes by deployment type
 

@@ -403,7 +403,7 @@ router.get('/run', async (req, res) => {
     send({ type: 'log', msg: `Found container: ${epgContainer}` });
     send({ type: 'log', msg: 'Starting scrape... this may take several minutes.' });
 
-    const proc = spawn('docker', ['exec', '-w', '/epg', epgContainer, 'npm', 'run', 'grab', '--', '--channels=/epg/public/channels.xml']);
+    const proc = spawn('docker', ['exec', '-w', '/epg', epgContainer, 'npm', 'run', 'grab', '--', '--channels=/epg/public/channels.xml', '--output=/epg/public/guide.xml']);
 
     proc.stdout.on('data', (d) => {
       d.toString().split('\n').forEach(pushRunLine);

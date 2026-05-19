@@ -12,6 +12,12 @@ mkdir -p "$DATA_DIR" "$SCRAPER_DIR"
 
 if [ "$(id -u)" = "0" ]; then
   chown -R "${APP_UID}:${APP_GID}" "$DATA_DIR"
+
+  # Optional scraper "Run now" uses docker CLI and needs socket access.
+  # Make mounted socket world-readable/writable so the non-root node user can use it.
+  if [ -S /var/run/docker.sock ]; then
+    chmod 666 /var/run/docker.sock || true
+  fi
 fi
 
 case "$SCRAPER_CHANNELS_PATH" in

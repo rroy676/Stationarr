@@ -7,6 +7,8 @@
 - Added startup warnings when `SCRAPER_CHANNELS_PATH` points outside `/app/data`, including a specific warning against using `/epg/public` in the Stationarr container.
 - Fixed scraper first-run fallback when Docker CLI/socket access is unavailable: Stationarr now checks `SCRAPER_URL/guide.xml` before auto-fetching and no longer emits success/done states when the file is missing (404).
 - Added clear scraper-run warnings for the “sidecar online but guide.xml not generated yet” case, including actionable next steps (wait for cron/manual sidecar run or enable Docker socket access for immediate Run now).
+- Fixed immediate Docker-socket scraper command to pass `--output=/epg/public/guide.xml`, ensuring the sidecar writes guide output to the shared public path that Stationarr fetches.
+- Docker entrypoint now relaxes permissions on a mounted `/var/run/docker.sock` before dropping privileges so the non-root `node` user can access Docker CLI for scraper "Run now".
 
 ### Documentation
 - Updated `docker run` and `docker-compose` examples to use the correct shared volume mapping: Stationarr writes `/app/data/scraper/channels.xml` and the EPG sidecar mounts that same volume at `/epg/public`.
