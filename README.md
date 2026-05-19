@@ -155,6 +155,17 @@ docker compose up -d
 **Step 3 — Go to Settings → EPG Scraper** to add channels and run the scraper from the UI.
 
 > **Docker socket warning:** Some scraper-management workflows may require Docker socket access. Mounting `/var/run/docker.sock` gives the Stationarr container broad control over Docker on the host. Only enable it on trusted self-hosted systems. See [SECURITY.md](SECURITY.md).
+>
+> **First run behaviour (important):** If Docker socket access is not mounted, Stationarr cannot trigger the sidecar immediately. On fresh installs, `guide.xml` may not exist yet and will return `404` until the sidecar cron job runs (default every 6 hours) or you run the sidecar manually (`docker exec ... npm run grab -- --channels=/epg/public/channels.xml --output=/epg/public/guide.xml`).
+
+### First-run notes by deployment type
+
+- **Docker Compose (`docker compose up -d`)**
+  - If Stationarr has Docker socket access (`/var/run/docker.sock` mounted), **Run now** can trigger the sidecar and then auto-fetch `guide.xml`.
+  - Without Docker socket access, Stationarr can only check whether `guide.xml` already exists. If missing, wait for cron/manual sidecar run.
+- **Docker Run (`docker run ...`)**
+  - Same behaviour as Compose: mount Docker socket only if you want Stationarr to trigger sidecar runs immediately.
+  - Without socket access, first-run `guide.xml` generation must come from the sidecar’s own cron or a manual `docker exec` in the sidecar container.
 
 ---
 
