@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Fixed
+- Fixed EPG Scraper "Go to EPG Sources" actions to open the actual EPG Sources modal from the scraper page instead of routing to Settings.
 - Scraper channel add flow now resolves and stores valid site-specific `site_id`/`xmltv_id` definitions from iptv-org/epg instead of guessing `site_id` from a channel id.
 - Added fallback lookup + clear error messaging when a site-specific scraper channel definition cannot be found for the selected site/channel pair.
 - Scraper channel-definition lookup now supports standard Docker Compose deployments by falling back to iptv-org/epg GitHub site files when local `/epg/sites` definitions are not mounted into the Stationarr container.

@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Tv, Search, Plus, Trash2, Eye, EyeOff, RefreshCw,
          CheckCircle, XCircle, Play, Rss, ExternalLink, Terminal, Settings } from 'lucide-react';
 import ThemeToggle from '../components/ThemeToggle.jsx';
+import EPGPanel from '../components/EPGPanel.jsx';
 import { scraper as api, epg as epgApi } from '../api.js';
 import { useToast } from '../context.jsx';
 
@@ -30,6 +31,7 @@ export default function ScraperPage() {
   const [epgSources, setEpgSources] = useState([]);
   const [loading,    setLoading]    = useState(true);
   const [tab,        setTab]        = useState('channels');
+  const [showEPG,    setShowEPG]    = useState(false);
 
   // Search
   const [query,      setQuery]      = useState('');
@@ -177,7 +179,20 @@ export default function ScraperPage() {
     catch (e) { toast(e.message, 'error'); }
   };
 
-  const scraperSource = epgSources.find(s => s.name === 'iptv-org/epg (scraper)');
+  const onEpgSourceChange = useCallback(async () => {
+    try {
+      const [st, chs, si, epg] = await Promise.all([
+        api.status(), api.channels(), api.sites(), epgApi.list(),
+      ]);
+      setStatus(st);
+      setChannels(chs);
+      setSites(si);
+      setEpgSources(epg);
+    } catch (e) {
+      toast(e.message, 'error');
+    }
+  }, [toast]);
+
   const enabledCount  = channels.filter(c => c.enabled).length;
   const noConfiguredChannels = Boolean(status?.no_channels_configured ?? (enabledCount === 0));
   const availSites    = sites.filter(s => !country || s.countries.includes(country));
@@ -249,7 +264,7 @@ export default function ScraperPage() {
           {runDone && !running && (
             <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <p className="text-sm text-green">✓ EPG data fetched and cached in Stationarr</p>
-              <button className="btn btn-sm" onClick={() => nav('/settings')}>Go to EPG Sources →</button>
+              <button className="btn btn-sm" onClick={() => setShowEPG(true)}>Go to EPG Sources →</button>
             </div>
           )}
         </div>
@@ -432,7 +447,7 @@ export default function ScraperPage() {
             )}
             {runDone && (
               <div style={{ display: 'flex', gap: 8 }}>
-                <button className="btn btn-primary" onClick={() => nav('/settings')}>Go to EPG Sources →</button>
+                <button className="btn btn-primary" onClick={() => setShowEPG(true)}>Go to EPG Sources →</button>
                 <button className="btn" onClick={runScraper}><Play size={12}/> Run again</button>
               </div>
             )}
@@ -450,6 +465,15 @@ export default function ScraperPage() {
         />
       )}
 
+
+
+      {showEPG && (
+        <EPGPanel
+          sources={epgSources}
+          onClose={() => setShowEPG(false)}
+          onChange={onEpgSourceChange}
+        />
+      )}
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   );
