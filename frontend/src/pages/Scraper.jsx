@@ -118,7 +118,14 @@ export default function ScraperPage() {
       }
       setLogs(prev => [...prev, { type: 'log', msg: 'Fetching guide into Stationarr...' }]);
       const res = await epgApi.fetch(src.id);
-      setLogs(prev => [...prev, { type: 'done', msg: `✓ Done! Loaded ${res.loaded} channels into Stationarr EPG cache.` }]);
+      const programmeCount = Number.isFinite(res?.programme_count) ? res.programme_count : null;
+      setLogs(prev => [...prev, { type: 'done', msg: `✓ Done! Loaded ${res.loaded} channels into Stationarr EPG cache${programmeCount !== null ? ` (${programmeCount} programme entries).` : '.'}` }]);
+      if (programmeCount === 0) {
+        setLogs(prev => [...prev,
+          { type: 'warning', msg: 'Scraper ran, but no programmes were found for the selected channels/source.' },
+          { type: 'warning', msg: 'Try another scraper source/site for this channel.' },
+        ]);
+      }
       load();
     } catch (e) {
       const friendly = e.message?.includes('NO_SCRAPER_CHANNELS')
@@ -207,7 +214,7 @@ export default function ScraperPage() {
                   <p className="text-sm text-muted">
                     {noConfiguredChannels
                       ? 'No scraper channels are currently configured in channels.xml. Add and enable channels before running the scraper.'
-                      : `${enabledCount} channel${enabledCount !== 1 ? 's' : ''} configured. Click Run to fetch latest EPG data.`}
+                      : `${enabledCount} channel${enabledCount !== 1 ? 's' : ''} configured. Click Run to fetch latest EPG data. Note: only selected scraper channels are included in generated guide data.`}
                   </p>
                 </>
               ) : (
@@ -340,6 +347,7 @@ export default function ScraperPage() {
                 <p>2. Pick which scraper site to use (use the one for your country)</p>
                 <p>3. Once you've added all your channels, click <strong style={{ color: 'var(--text)' }}>Run now</strong> at the top</p>
                 <p>4. Stationarr fetches the EPG data and caches it automatically — no terminal needed</p>
+                <p>5. Important: adding one scraper channel only fetches guide data for that specific selected channel.</p>
               </div>
             )}
 
@@ -407,6 +415,7 @@ export default function ScraperPage() {
                   <div key={i} style={{
                     color: log.type === 'error' ? 'var(--red)'
                          : log.type === 'done'  ? 'var(--green)'
+                         : log.type === 'warning' ? 'var(--yellow)'
                          : 'var(--text)',
                   }}>
                     {log.msg}
