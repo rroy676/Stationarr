@@ -4,15 +4,12 @@ const requireAuth = require('../middleware/auth');
 const { parseXMLTV, parseXMLTVBuffer } = require('../utils/xmltv');
 const { saveEPGCache, deleteEPGCache } = require('../utils/xmltv-merge');
 const { readProgrammes } = require('../utils/epg-reader');
+const { countProgrammeEntriesFromBuffer } = require('../utils/xmltv-programme-count');
 const fetch   = require('node-fetch');
 const path    = require('path');
 const fs      = require('fs');
 
 const DATA_DIR = process.env.DATA_DIR || './data';
-function countProgrammeEntriesFromText(text) {
-  const matches = String(text || '').match(/<programme\b/g);
-  return matches ? matches.length : 0;
-}
 
 router.use(requireAuth);
 
@@ -120,7 +117,8 @@ router.get('/:id/fetch-stream', async (req, res) => {
     // Clear guide cache so next guide load is fresh
     try { require('./guide').clearCache(); } catch {}
 
-    send({ phase: 'done', loaded: channels.length, cache_size: size });
+    const programmeCount = countProgrammeEntriesFromBuffer(buf);
+    send({ phase: 'done', loaded: channels.length, cache_size: size, programme_count: programmeCount });
     res.end();
   } catch (e) {
     send({ phase: 'error', message: e.message });
@@ -161,9 +159,9 @@ router.post('/:id/fetch', async (req, res) => {
     const cachePath = path.join(DATA_DIR, 'epg_cache', `source_${src.id}.xml`);
     fs.renameSync(tmpPath, cachePath);
 
-    storeEPGChannels(src.id, channels, cachePath, size);
+    const programmeCount = countProgrammeEntriesFromBuffer(fs.readFileSync(cachePath));
+    storeEPGChannels(src.id, channels, cachePath, size, programmeCount);
     try { require('./guide').clearCache(); } catch {}
-    const programmeCount = countProgrammeEntriesFromText(fs.readFileSync(cachePath, 'utf8'));
     res.json({ loaded: channels.length, cache_size: size, cached: true, programme_count: programmeCount });
   } catch (e) {
     // Clean up tmp file on error
@@ -182,9 +180,9 @@ router.post('/:id/upload', async (req, res) => {
     const buf      = Buffer.from(content, 'utf8');
     const channels = await parseXMLTVBuffer(buf);
     const { cachePath, size } = saveEPGCache(DATA_DIR, src.id, buf);
-    storeEPGChannels(src.id, channels, cachePath, size);
+    const programmeCount = countProgrammeEntriesFromBuffer(buf);
+    storeEPGChannels(src.id, channels, cachePath, size, programmeCount);
     try { require('./guide').clearCache(); } catch {}
-    const programmeCount = countProgrammeEntriesFromText(buf.toString('utf8'));
     res.json({ loaded: channels.length, cache_size: size, cached: true, programme_count: programmeCount });
   } catch (e) {
     res.status(500).json({ error: 'Parse failed: ' + e.message });
@@ -196,7 +194,7 @@ router.delete('/:id/cache', (req, res) => {
   const src = db.prepare('SELECT * FROM epg_sources WHERE id=? AND user_id=?').get(req.params.id, req.user.id);
   if (!src) return res.status(404).json({ error: 'Not found' });
   deleteEPGCache(src.cache_path);
-  db.prepare("UPDATE epg_sources SET cache_path=NULL, cache_size=0, cache_updated=NULL WHERE id=?").run(src.id);
+  db.prepare("UPDATE epg_sources SET cache_path=NULL, cache_size=0, cache_updated=NULL, programme_count=0 WHERE id=?").run(src.id);
   res.json({ ok: true });
 });
 
@@ -327,7 +325,7 @@ function fuzzy(s) {
     .replace(/[^a-z0-9]/g, '');            // strip all non-alphanumeric
 }
 
-function storeEPGChannels(sourceId, channels, cachePath, cacheSize) {
+function storeEPGChannels(sourceId, channels, cachePath, cacheSize, programmeCount = 0) {
   const insert = db.prepare('INSERT INTO epg_channels (source_id, tvg_id, name, icon) VALUES (?,?,?,?)');
   // Filter out channels with no ID or name — these would violate NOT NULL constraints
   const valid = channels.filter(c => (c.tvg_id || c.id) && (c.name || '').trim());
@@ -336,10 +334,10 @@ function storeEPGChannels(sourceId, channels, cachePath, cacheSize) {
     valid.forEach(c => insert.run(sourceId, c.tvg_id || c.id, c.name, c.icon || ''));
     db.prepare(`
       UPDATE epg_sources
-      SET last_fetched=datetime('now'), channel_count=?, cache_path=?, cache_size=?,
+      SET last_fetched=datetime('now'), channel_count=?, programme_count=?, cache_path=?, cache_size=?,
           cache_updated=datetime('now'), last_refreshed=datetime('now')
       WHERE id=?
-    `).run(valid.length, cachePath || null, cacheSize || 0, sourceId);
+    `).run(valid.length, Number(programmeCount) || 0, cachePath || null, cacheSize || 0, sourceId);
   })();
 }
 

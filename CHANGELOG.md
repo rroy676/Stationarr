@@ -9,6 +9,13 @@
 - Scraper channel-definition lookup now supports standard Docker Compose deployments by falling back to iptv-org/epg GitHub site files when local `/epg/sites` definitions are not mounted into the Stationarr container.
 - Scraper definition lookup now also checks nested iptv-org/epg site paths (e.g. `sites/tvguide.com/tvguide.com.channels.xml`) for both local and GitHub fallback sources.
 
+### Improved
+- EPG source cache status now shows programme counts alongside channel counts, cache size, and cache age in the EPG Sources modal.
+- EPG fetch/upload/manual refresh flows now return and display `programme_count`, and scheduler refreshes now count/store/log programme totals.
+- Programme counting now handles both plain XMLTV and `.xml.gz` sources safely when calculating `programme_count`.
+- Added a new “How the EPG scraper works” help section on the EPG Scraper page with clearer sidecar vs Stationarr scheduler behaviour.
+- Added troubleshooting hints for common scraper outcomes: `0 channels` and `0 programmes`.
+
 ## [1.0.8] — 2026-05-19
 
 ### Changed
