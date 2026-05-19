@@ -1,5 +1,14 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+- Docker startup now proactively creates `/app/data` and `/app/data/scraper`, repairs ownership for UID/GID `1000`, and then starts Node as the non-root `node` user to prevent EACCES on fresh named volumes.
+- Added startup warnings when `SCRAPER_CHANNELS_PATH` points outside `/app/data`, including a specific warning against using `/epg/public` in the Stationarr container.
+
+### Documentation
+- Updated `docker run` and `docker-compose` examples to use the correct shared volume mapping: Stationarr writes `/app/data/scraper/channels.xml` and the EPG sidecar mounts that same volume at `/epg/public`.
+
 ## [1.0.9] — 2026-05-19
 
 ### Fixed

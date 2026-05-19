@@ -7,7 +7,8 @@ services:
       - "3000:3000"
     volumes:
       - stationarr_data:/app/data
-      - scraper_shared:/app/data/scraper
+      # Shared with epg sidecar; Stationarr writes channels.xml here
+      - stationarr_scraper_shared:/app/data/scraper
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - PORT=3000
@@ -17,6 +18,7 @@ services:
       - BASE_URL=${BASE_URL:-http://localhost:3000}
       - REGISTRATION_OPEN=${REGISTRATION_OPEN:-true}
       - SCRAPER_URL=http://stationarr-epg:3000
+      # Must stay under /app/data for Stationarr; do not point to /epg/public
       - SCRAPER_CHANNELS_PATH=/app/data/scraper/channels.xml
       - DOCKER_API_VERSION=1.41
     networks:
@@ -27,7 +29,8 @@ services:
     container_name: stationarr-epg
     restart: unless-stopped
     volumes:
-      - scraper_shared:/epg/public
+      # Same shared volume mounted in sidecar path expected by iptv-org/epg
+      - stationarr_scraper_shared:/epg/public
     environment:
       - CRON_SCHEDULE=0 */6 * * *
       - DAYS=3
@@ -38,7 +41,7 @@ services:
 
 volumes:
   stationarr_data:
-  scraper_shared:
+  stationarr_scraper_shared:
 
 networks:
   stationarr_net:
