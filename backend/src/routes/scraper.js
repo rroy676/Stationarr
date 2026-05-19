@@ -10,6 +10,9 @@ const DATA_DIR      = process.env.DATA_DIR || './data';
 const SCRAPER_URL   = process.env.SCRAPER_URL || 'http://epg:3000';
 const CHANNELS_PATH = process.env.SCRAPER_CHANNELS_PATH || path.join(DATA_DIR, 'scraper', 'channels.xml');
 const EPG_SITES_DIR = process.env.EPG_SITES_DIR || '/epg/sites';
+const EPG_SITES_REMOTE_BASE = process.env.EPG_SITES_REMOTE_BASE || 'https://raw.githubusercontent.com/iptv-org/epg/master/sites';
+const SITE_DEF_CACHE_TTL_MS = Number(process.env.EPG_SITES_CACHE_TTL_MS || (6 * 60 * 60 * 1000));
+const siteDefCache = new Map();
 
 function getConfiguredChannelCountFromXML() {
   if (!fs.existsSync(CHANNELS_PATH)) return 0;
@@ -69,13 +72,13 @@ router.get('/channels', requireAuth, (req, res) => {
 });
 
 // ── Add channel ───────────────────────────────────────────────────
-router.post('/channels', requireAuth, (req, res) => {
+router.post('/channels', requireAuth, async (req, res) => {
   const { xmltv_id, site, site_id, name, lang, channel_id } = req.body;
   if (!site || !name) {
     return res.status(400).json({ error: 'site and name required' });
   }
 
-  const resolved = resolveScraperChannelDefinition({ site, xmltv_id, site_id, name, channel_id });
+  const resolved = await resolveScraperChannelDefinition({ site, xmltv_id, site_id, name, channel_id });
   if (!resolved.ok) {
     return res.status(422).json({
       error: resolved.error,
@@ -216,13 +219,16 @@ function parseCSV(text) {
   }).filter(ch => ch.id && ch.name);
 }
 
-function resolveScraperChannelDefinition({ site, xmltv_id, site_id, name, channel_id }) {
+async function resolveScraperChannelDefinition({ site, xmltv_id, site_id, name, channel_id }) {
   // Preserve site-specific definition when client already provides both fields
   if (xmltv_id && site_id) return { ok: true, xmltv_id, site_id };
 
-  const defs = loadSiteChannelDefinitions(site);
+  const defs = await loadSiteChannelDefinitions(site);
   if (!defs.length) {
-    return { ok: false, error: `No scraper channel definitions found for site "${site}".` };
+    return {
+      ok: false,
+      error: `No scraper channel definitions found for site "${site}" (checked ${EPG_SITES_DIR} and ${EPG_SITES_REMOTE_BASE}).`,
+    };
   }
 
   const norm = (v) => String(v || '').trim().toLowerCase();
@@ -238,13 +244,19 @@ function resolveScraperChannelDefinition({ site, xmltv_id, site_id, name, channe
   return { ok: false, error: `No valid site_id mapping found for "${name}" on ${site}.` };
 }
 
-function loadSiteChannelDefinitions(site) {
-  const xml = readSiteChannelsXML(site);
-  if (!xml) return [];
-  return parseSiteChannelsXML(xml);
+async function loadSiteChannelDefinitions(site) {
+  const cacheKey = String(site || '').toLowerCase();
+  const now = Date.now();
+  const cached = siteDefCache.get(cacheKey);
+  if (cached && (now - cached.ts) < SITE_DEF_CACHE_TTL_MS) return cached.defs;
+
+  const xml = await readSiteChannelsXML(site);
+  const defs = xml ? parseSiteChannelsXML(xml) : [];
+  siteDefCache.set(cacheKey, { ts: now, defs });
+  return defs;
 }
 
-function readSiteChannelsXML(site) {
+async function readSiteChannelsXML(site) {
   const safe = String(site || '').replace(/[^a-zA-Z0-9._-]/g, '');
   const candidates = [
     path.join(EPG_SITES_DIR, safe + '.channels.xml'),
@@ -253,6 +265,17 @@ function readSiteChannelsXML(site) {
   ];
   for (const file of candidates) {
     if (fs.existsSync(file)) return fs.readFileSync(file, 'utf8');
+  }
+
+  const remoteCandidates = [
+    `${EPG_SITES_REMOTE_BASE}/${encodeURIComponent(safe)}.channels.xml`,
+    `${EPG_SITES_REMOTE_BASE}/${encodeURIComponent(safe)}.xml`,
+  ];
+  for (const url of remoteCandidates) {
+    try {
+      const r = await fetch(url, { timeout: 10000 });
+      if (r.ok) return await r.text();
+    } catch {}
   }
   return null;
 }
