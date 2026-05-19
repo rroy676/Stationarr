@@ -1,16 +1,21 @@
 # Changelog
 
-## [Unreleased]
+## [1.0.8] — 2026-05-19
 
 ### Changed
 - Playlist M3U import now classifies obvious VOD/movie/series entries and skips them by default so live-channel counts are clearer and less inflated.
 - Refined VOD-like classifier to prioritize URL-path signals (`/movie/`, `/series/`, `/vod/`) and conservative episode/group heuristics, reducing false positives on legitimate live channels.
 - Added import summary fields (`total_entries`, `imported_live`, `skipped_vod_like`, `include_vod_like`) to the playlist import API response.
 - Scheduler refresh logs now report total parsed entries vs imported live channels and skipped VOD-like entries.
+
+### Improved
 - EPG scraper run logs now surface zero-programme outcomes with a clear warning and suggestion to try another scraper source/site.
 - Scraper post-run checks now summarize generated `guide.xml` channel/programme counts so empty-programme guides are obvious.
 - Auto-fetch logs now include loaded channel counts plus programme-entry counts when importing scraper output into Stationarr.
 - EPG scraper help text now clarifies that adding one scraper channel only generates guide data for that selected channel.
+
+### Fixed
+- Updated the optional EPG sidecar Docker image tag from `ghcr.io/iptv-org/epg:latest` to `ghcr.io/iptv-org/epg:master`.
 
 ## [1.0.7] — 2026-05-19
 
