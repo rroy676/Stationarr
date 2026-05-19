@@ -444,13 +444,38 @@ router.get('/run', async (req, res) => {
 
 // Fallback: poll guide.xml for changes (when docker exec not available)
 async function triggerViaPoll(scraperUrl, send, res) {
+  let guideAvailable = false;
+  let guideHeadStatus = null;
+  try {
+    const guideHead = await fetch(`${scraperUrl}/guide.xml`, { method: 'HEAD', timeout: 5000 });
+    guideHeadStatus = guideHead.status;
+    guideAvailable = guideHead.ok;
+  } catch (e) {
+    send({ type: 'warning', msg: `Could not verify guide.xml availability right now (${e.message}).` });
+  }
+
   send({ type: 'log', msg: 'Note: To enable real-time scraping, mount the Docker socket in docker-compose.yml:' });
   send({ type: 'log', msg: '  volumes:' });
   send({ type: 'log', msg: '    - /var/run/docker.sock:/var/run/docker.sock' });
   send({ type: 'log', msg: '' });
-  send({ type: 'log', msg: 'For now, the scraper will run on its cron schedule (every 6 hours).' });
-  send({ type: 'log', msg: 'The guide.xml is already accessible — fetching it now...' });
-  send({ type: 'done', msg: 'Ready to fetch guide into Stationarr.' });
+  if (guideAvailable) {
+    send({ type: 'log', msg: 'Docker socket access is unavailable, so Stationarr cannot trigger an immediate sidecar run.' });
+    send({ type: 'log', msg: 'guide.xml is accessible right now — fetching it now...' });
+    send({ type: 'done', msg: 'Ready to fetch guide into Stationarr.' });
+    return res.end();
+  }
+
+  if (guideHeadStatus === 404) {
+    send({ type: 'warning', msg: 'The EPG sidecar is online, but guide.xml has not been generated yet.' });
+  } else if (guideHeadStatus) {
+    send({ type: 'warning', msg: `The EPG sidecar is online, but guide.xml is not ready yet (HTTP ${guideHeadStatus}).` });
+  } else {
+    send({ type: 'warning', msg: 'The EPG sidecar is online, but guide.xml could not be confirmed yet.' });
+  }
+
+  send({ type: 'warning', msg: 'Immediate "Run now" from Stationarr requires Docker socket access.' });
+  send({ type: 'warning', msg: 'Without Docker socket access, wait for the sidecar cron run (default every 6 hours) or run the sidecar manually.' });
+  send({ type: 'error', msg: 'guide.xml is not available yet, so Stationarr cannot auto-fetch it on first run.' });
   res.end();
 }
 

@@ -5,9 +5,12 @@
 ### Fixed
 - Docker startup now proactively creates `/app/data` and `/app/data/scraper`, repairs ownership for UID/GID `1000`, and then starts Node as the non-root `node` user to prevent EACCES on fresh named volumes.
 - Added startup warnings when `SCRAPER_CHANNELS_PATH` points outside `/app/data`, including a specific warning against using `/epg/public` in the Stationarr container.
+- Fixed scraper first-run fallback when Docker CLI/socket access is unavailable: Stationarr now checks `SCRAPER_URL/guide.xml` before auto-fetching and no longer emits success/done states when the file is missing (404).
+- Added clear scraper-run warnings for the “sidecar online but guide.xml not generated yet” case, including actionable next steps (wait for cron/manual sidecar run or enable Docker socket access for immediate Run now).
 
 ### Documentation
 - Updated `docker run` and `docker-compose` examples to use the correct shared volume mapping: Stationarr writes `/app/data/scraper/channels.xml` and the EPG sidecar mounts that same volume at `/epg/public`.
+- Documented first-run scraper behaviour for Docker Compose and Docker Run when Docker socket access is not mounted.
 
 ## [1.0.9] — 2026-05-19
 
