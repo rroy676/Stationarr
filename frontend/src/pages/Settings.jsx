@@ -1,16 +1,18 @@
 import HeaderButtons from '../components/HeaderButtons.jsx';
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Tv, Rss, Download, Upload } from 'lucide-react';
 import { applyTheme, getTheme } from '../components/ThemeToggle.jsx';
-import { auth as api, backup as backupApi } from '../api.js';
+import { auth as api, backup as backupApi, epg as epgApi } from '../api.js';
 import { useAuth, useToast } from '../context.jsx';
 import { useTZ, TIMEZONE_GROUPS } from '../timezone.jsx';
+import EPGPanel from '../components/EPGPanel.jsx';
 
 export default function Settings() {
   const { user, logout } = useAuth();
   const toast = useToast();
   const nav   = useNavigate();
+  const location = useLocation();
   const { tz, setTimezone, fmtTime } = useTZ();
 
   const [theme, setTheme] = useState(getTheme);
@@ -20,6 +22,8 @@ export default function Settings() {
   const [form, setForm]     = useState({ current: '', next: '', confirm: '' });
   const [saving,    setSaving]    = useState(false);
   const [restoring, setRestoring] = useState(false);
+  const [showEPG, setShowEPG] = useState(false);
+  const [epgSources, setEpgSources] = useState([]);
 
   const [version, setVersion] = useState(null);
   useEffect(() => {
@@ -28,6 +32,19 @@ export default function Settings() {
       .then(d => { if (d.version) setVersion(d.version); })
       .catch(() => {});
   }, []);
+
+  const loadEpgSources = async () => {
+    try { setEpgSources(await epgApi.list()); }
+    catch (err) { toast(err.message, 'error'); }
+  };
+
+  useEffect(() => {
+    if (location.state?.openEpgSources) {
+      setShowEPG(true);
+      loadEpgSources();
+      nav(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state, location.pathname]);
 
   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
 
@@ -144,7 +161,7 @@ export default function Settings() {
         {/* EPG Scraper */}
         <div>
           <h2 style={{ fontSize: 15, fontWeight: 600, marginBottom: 12 }}>EPG scraper</h2>
-          <div className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
             <div>
               <p style={{ fontWeight: 500, marginBottom: 4 }}>iptv-org/epg integration</p>
               <p className="text-sm text-muted">Manage which channels the scraper fetches, view status, and configure the sidecar container.</p>
@@ -153,6 +170,12 @@ export default function Settings() {
               <Rss size={13}/> Open scraper
             </button>
           </div>
+          <button
+            className="btn btn-sm"
+            onClick={() => { setShowEPG(true); loadEpgSources(); }}
+          >
+            Open EPG Sources
+          </button>
         </div>
 
         {/* Backup & Restore */}
@@ -250,6 +273,14 @@ export default function Settings() {
           </div>
         </div>
       </main>
+
+      {showEPG && (
+        <EPGPanel
+          sources={epgSources}
+          onClose={() => setShowEPG(false)}
+          onChange={loadEpgSources}
+        />
+      )}
     </div>
   );
 }

@@ -249,7 +249,7 @@ export default function ScraperPage() {
           {runDone && !running && (
             <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <p className="text-sm text-green">✓ EPG data fetched and cached in Stationarr</p>
-              <button className="btn btn-sm" onClick={() => nav('/settings')}>Go to EPG Sources →</button>
+              <button className="btn btn-sm" onClick={() => nav('/settings', { state: { openEpgSources: true } })}>Go to EPG Sources →</button>
             </div>
           )}
         </div>
@@ -454,7 +454,7 @@ export default function ScraperPage() {
             )}
             {runDone && (
               <div style={{ display: 'flex', gap: 8 }}>
-                <button className="btn btn-primary" onClick={() => nav('/settings')}>Go to EPG Sources →</button>
+                <button className="btn btn-primary" onClick={() => nav('/settings', { state: { openEpgSources: true } })}>Go to EPG Sources →</button>
                 <button className="btn" onClick={runScraper}><Play size={12}/> Run again</button>
               </div>
             )}
