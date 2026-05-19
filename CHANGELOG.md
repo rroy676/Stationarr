@@ -1,9 +1,17 @@
 # Changelog
 
-## [Unreleased]
+## [1.0.7] — 2026-05-19
 
 ### Improved
-- EPG Scraper now reports when `channels.xml` has zero selected channels, shows clearer UI warnings, blocks manual runs with no configured channels, and returns a friendly 404 message for `/api/scraper/guide.xml` when no guide can be generated.
+- Improved EPG scraper sidecar onboarding when no scraper channels are configured.
+- Added scraper channel counts to the scraper status response.
+- Added a visible warning in the EPG Scraper page when no scraper channels are configured.
+- Disabled scraper runs when no scraper channels are selected.
+- Added a clearer `NO_SCRAPER_CHANNELS` response when `/guide.xml` is missing because no guide was generated.
+
+### Notes
+- This release addresses the confusing `found 0 channel(s)` / `/guide.xml` 404 sidecar case.
+- Large playlist performance and possible VOD/series import counting are being tracked separately.
 
 ## [1.0.6] — 2026-05-16
 
