@@ -65,6 +65,10 @@ export default function ScraperPage() {
 
   const runScraper = () => {
     if (running) return;
+    if (status?.no_channels_configured || enabledCount === 0) {
+      toast('No scraper channels are configured. Add and enable at least one channel first.', 'warning');
+      return;
+    }
     setRunning(true);
     setRunDone(false);
     setLogs([]);
@@ -117,7 +121,10 @@ export default function ScraperPage() {
       setLogs(prev => [...prev, { type: 'done', msg: `✓ Done! Loaded ${res.loaded} channels into Stationarr EPG cache.` }]);
       load();
     } catch (e) {
-      setLogs(prev => [...prev, { type: 'error', msg: `Could not auto-fetch guide: ${e.message}` }]);
+      const friendly = e.message?.includes('NO_SCRAPER_CHANNELS')
+        ? 'No guide was generated because no scraper channels are selected. Add and enable channels, then run again.'
+        : `Could not auto-fetch guide: ${e.message}`;
+      setLogs(prev => [...prev, { type: 'error', msg: friendly }]);
     }
   };
 
@@ -165,6 +172,7 @@ export default function ScraperPage() {
 
   const scraperSource = epgSources.find(s => s.name === 'iptv-org/epg (scraper)');
   const enabledCount  = channels.filter(c => c.enabled).length;
+  const noConfiguredChannels = Boolean(status?.no_channels_configured ?? (enabledCount === 0));
   const availSites    = sites.filter(s => !country || s.countries.includes(country));
 
   return (
@@ -197,8 +205,8 @@ export default function ScraperPage() {
                 <>
                   <p style={{ fontWeight: 600, marginBottom: 4 }}>Scraper is ready</p>
                   <p className="text-sm text-muted">
-                    {channels.length === 0
-                      ? 'Add channels below, then click Run to fetch EPG data.'
+                    {noConfiguredChannels
+                      ? 'No scraper channels are currently configured in channels.xml. Add and enable channels before running the scraper.'
                       : `${enabledCount} channel${enabledCount !== 1 ? 's' : ''} configured. Click Run to fetch latest EPG data.`}
                   </p>
                 </>
@@ -211,7 +219,7 @@ export default function ScraperPage() {
             </div>
             <button
               className="btn btn-primary"
-              disabled={!status?.online || running || channels.length === 0}
+              disabled={!status?.online || running || noConfiguredChannels}
               onClick={runScraper}
               style={{ flexShrink: 0, minWidth: 120, justifyContent: 'center' }}
             >
@@ -221,6 +229,15 @@ export default function ScraperPage() {
               }
             </button>
           </div>
+
+
+          {status?.online && noConfiguredChannels && (
+            <div style={{ marginTop: 12, padding: '10px 12px', borderRadius: 8, background: 'color-mix(in oklab, var(--yellow) 14%, var(--surface))', border: '1px solid color-mix(in oklab, var(--yellow) 30%, var(--border2))' }}>
+              <p className="text-sm" style={{ color: 'var(--text)', margin: 0 }}>
+                ⚠ No scraper channels are selected. The sidecar can run, but it will produce no guide and <span className="mono">/guide.xml</span> may return 404 until channels are added.
+              </p>
+            </div>
+          )}
 
           {runDone && !running && (
             <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -382,7 +399,7 @@ export default function ScraperPage() {
               <div className="empty-state">
                 <Terminal size={32}/>
                 <p>No run yet</p>
-                <p className="text-sm text-faint">Add channels then click Run now</p>
+                <p className="text-sm text-faint">Add and enable at least one scraper channel, then click Run now</p>
               </div>
             ) : (
               <div style={{ background: 'var(--bg)', borderRadius: 8, padding: '12px 14px', fontFamily: 'monospace', fontSize: 12, lineHeight: 1.8, maxHeight: 500, overflowY: 'auto', border: '1px solid var(--border)' }}>
