@@ -8,10 +8,7 @@ services:
     volumes:
       - stationarr_data:/app/data
       - scraper_shared:/app/data/scraper
-      # Optional: enable only if you need Stationarr to control Docker-based scraper workflows.
-      # WARNING: Mounting the Docker socket gives this container broad control over Docker on the host.
-      # See SECURITY.md before enabling.
-      # - /var/run/docker.sock:/var/run/docker.sock
+      - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - PORT=3000
       - JWT_SECRET=${JWT_SECRET:-changeme-set-in-env-file}
@@ -25,21 +22,19 @@ services:
     networks:
       - stationarr_net
 
-  # ── iptv-org/epg scraper sidecar (optional) ──────────────────────
-  # Uncomment to enable. Go to Settings → EPG Scraper to manage.
-  #
-  # epg:
-  #   image: ghcr.io/iptv-org/epg:latest
-  #   container_name: stationarr-epg
-  #   restart: unless-stopped
-  #   volumes:
-  #     - scraper_shared:/epg/public
-  #   environment:
-  #     - CRON_SCHEDULE=0 */6 * * *
-  #     - DAYS=3
-  #     - MAX_CONNECTIONS=5
-  #   networks:
-  #     - stationarr_net
+  epg:
+    image: ghcr.io/iptv-org/epg:master
+    container_name: stationarr-epg
+    restart: unless-stopped
+    volumes:
+      - scraper_shared:/epg/public
+    environment:
+      - CRON_SCHEDULE=0 */6 * * *
+      - DAYS=3
+      - MAX_CONNECTIONS=5
+      - RUN_AT_STARTUP=true
+    networks:
+      - stationarr_net
 
 volumes:
   stationarr_data:
