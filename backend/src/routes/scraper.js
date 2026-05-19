@@ -259,6 +259,7 @@ async function loadSiteChannelDefinitions(site) {
 async function readSiteChannelsXML(site) {
   const safe = String(site || '').replace(/[^a-zA-Z0-9._-]/g, '');
   const candidates = [
+    path.join(EPG_SITES_DIR, safe, safe + '.channels.xml'),
     path.join(EPG_SITES_DIR, safe + '.channels.xml'),
     path.join(EPG_SITES_DIR, safe, 'channels.xml'),
     path.join(EPG_SITES_DIR, safe + '.xml'),
@@ -268,6 +269,7 @@ async function readSiteChannelsXML(site) {
   }
 
   const remoteCandidates = [
+    `${EPG_SITES_REMOTE_BASE}/${encodeURIComponent(safe)}/${encodeURIComponent(safe)}.channels.xml`,
     `${EPG_SITES_REMOTE_BASE}/${encodeURIComponent(safe)}.channels.xml`,
     `${EPG_SITES_REMOTE_BASE}/${encodeURIComponent(safe)}.xml`,
   ];
