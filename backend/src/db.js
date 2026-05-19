@@ -119,6 +119,7 @@ if (!chCols.includes('timeshift')) db.exec("ALTER TABLE channels ADD COLUMN time
 // EPG source priority column
 const epgCols3 = db.prepare("PRAGMA table_info(epg_sources)").all().map(c => c.name);
 if (!epgCols3.includes('priority')) db.exec("ALTER TABLE epg_sources ADD COLUMN priority INTEGER DEFAULT 0");
+if (!epgCols3.includes('programme_count')) db.exec("ALTER TABLE epg_sources ADD COLUMN programme_count INTEGER DEFAULT 0");
 
 // EPG scraper config table
 db.exec(`

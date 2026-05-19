@@ -78,10 +78,10 @@ export default function EPGPanel({ sources, onClose, onChange }) {
     setProgress(p => ({ ...p, [id]: { phase: 'downloading', percent: null, message: 'Downloading & parsing… this may take a minute for large files' } }));
     try {
       const res = await api.fetch(id);
-      toast(`Loaded ${res.loaded} channels · ${formatSize(res.cache_size)} cached`, 'success');
+      toast(`Loaded ${res.loaded} channels · ${res.programme_count ?? 0} programmes · ${formatSize(res.cache_size)} cached`, 'success');
       // Update ordered sources in place so UI refreshes without waiting for parent
       setOrderedSources(prev => prev.map(s => s.id === id
-        ? { ...s, channel_count: res.loaded, cache_size: res.cache_size, cache_updated: new Date().toISOString() }
+        ? { ...s, channel_count: res.loaded, programme_count: res.programme_count ?? s.programme_count ?? 0, cache_size: res.cache_size, cache_updated: new Date().toISOString() }
         : s
       ));
       onChange();
@@ -97,7 +97,7 @@ export default function EPGPanel({ sources, onClose, onChange }) {
 
   const manualRefresh = async (id) => {
     setBusyFor(id, 'refresh');
-    try { const res = await api.refresh(id); toast(`Refreshed — ${res.channel_count} channels`, 'success'); onChange(); }
+    try { const res = await api.refresh(id); toast(`Refreshed — ${res.channel_count} channels · ${res.programme_count ?? 0} programmes`, 'success'); onChange(); }
     catch (err) { toast(err.message, 'error'); }
     finally { setBusyFor(id, false); }
   };
@@ -108,7 +108,11 @@ export default function EPGPanel({ sources, onClose, onChange }) {
       setBusyFor(id, 'upload');
       try {
         const res = await api.upload(id, { content: e.target.result });
-        toast(`Loaded ${res.loaded} channels · ${formatSize(res.cache_size)} cached`, 'success');
+        toast(`Loaded ${res.loaded} channels · ${res.programme_count ?? 0} programmes · ${formatSize(res.cache_size)} cached`, 'success');
+        setOrderedSources(prev => prev.map(s => s.id === id
+          ? { ...s, channel_count: res.loaded, programme_count: res.programme_count ?? s.programme_count ?? 0, cache_size: res.cache_size, cache_updated: new Date().toISOString() }
+          : s
+        ));
         onChange();
       } catch (err) { toast(err.message, 'error'); }
       finally { setBusyFor(id, false); }
@@ -209,7 +213,7 @@ export default function EPGPanel({ sources, onClose, onChange }) {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                       <HardDrive size={11} color="var(--green)" />
                       <span className="text-xs text-muted">
-                        {src.channel_count} channels · {formatSize(src.cache_size)} · cached {timeAgo(src.cache_updated)}
+                        {formatCacheSummary(src)}
                       </span>
                       <button className="btn btn-ghost btn-sm" style={{ padding: '2px 6px', fontSize: 11, color: 'var(--faint)' }} onClick={() => clearCache(src.id)}>clear</button>
                     </div>
@@ -316,4 +320,10 @@ function timeAgo(iso) {
   const hrs = Math.floor(mins / 60);
   if (hrs < 24)  return `${hrs}h ago`;
   return `${Math.floor(hrs / 24)}d ago`;
+}
+
+function formatCacheSummary(src) {
+  const channels = Number(src.channel_count || 0);
+  const programmes = Number(src.programme_count || 0);
+  return `${channels} channel${channels === 1 ? '' : 's'} · ${programmes} programme${programmes === 1 ? '' : 's'} · ${formatSize(src.cache_size)} · cached ${timeAgo(src.cache_updated)}`;
 }

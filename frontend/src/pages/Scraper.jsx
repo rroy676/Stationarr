@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Tv, Search, Plus, Trash2, Eye, EyeOff, RefreshCw,
          CheckCircle, XCircle, Play, Rss, ExternalLink, Terminal, Settings } from 'lucide-react';
 import ThemeToggle from '../components/ThemeToggle.jsx';
+import EPGPanel from '../components/EPGPanel.jsx';
 import { scraper as api, epg as epgApi } from '../api.js';
 import { useToast } from '../context.jsx';
 
@@ -30,6 +31,7 @@ export default function ScraperPage() {
   const [epgSources, setEpgSources] = useState([]);
   const [loading,    setLoading]    = useState(true);
   const [tab,        setTab]        = useState('channels');
+  const [showEPG,    setShowEPG]    = useState(false);
 
   // Search
   const [query,      setQuery]      = useState('');
@@ -157,7 +159,7 @@ export default function ScraperPage() {
       await api.addChannel({
         xmltv_id: ch.id,
         site:     site.site,
-        site_id:  ch.id.split('.')[0],
+        channel_id: ch.id,
         name:     ch.name,
         lang:     ch.languages?.split(';')[0]?.trim() || 'en',
       });
@@ -177,7 +179,20 @@ export default function ScraperPage() {
     catch (e) { toast(e.message, 'error'); }
   };
 
-  const scraperSource = epgSources.find(s => s.name === 'iptv-org/epg (scraper)');
+  const onEpgSourceChange = useCallback(async () => {
+    try {
+      const [st, chs, si, epg] = await Promise.all([
+        api.status(), api.channels(), api.sites(), epgApi.list(),
+      ]);
+      setStatus(st);
+      setChannels(chs);
+      setSites(si);
+      setEpgSources(epg);
+    } catch (e) {
+      toast(e.message, 'error');
+    }
+  }, [toast]);
+
   const enabledCount  = channels.filter(c => c.enabled).length;
   const noConfiguredChannels = Boolean(status?.no_channels_configured ?? (enabledCount === 0));
   const availSites    = sites.filter(s => !country || s.countries.includes(country));
@@ -249,9 +264,31 @@ export default function ScraperPage() {
           {runDone && !running && (
             <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <p className="text-sm text-green">✓ EPG data fetched and cached in Stationarr</p>
-              <button className="btn btn-sm" onClick={() => nav('/settings')}>Go to EPG Sources →</button>
+              <button className="btn btn-sm" onClick={() => setShowEPG(true)}>Go to EPG Sources →</button>
             </div>
           )}
+        </div>
+
+        <div className="card" style={{ background: 'var(--surface2)' }}>
+          <p style={{ fontWeight: 600, marginBottom: 8 }}>How the EPG scraper works</p>
+          <ol className="text-sm text-muted" style={{ margin: 0, paddingLeft: 18, lineHeight: 1.8 }}>
+            <li>Add scraper channels from a supported source/site.</li>
+            <li>Run the scraper now, or let the sidecar run on its own cron schedule.</li>
+            <li>Stationarr fetches and caches <span className="mono">guide.xml</span> into EPG Sources.</li>
+            <li>Match playlist channels to EPG IDs.</li>
+            <li>Open the Guide.</li>
+          </ol>
+          <div style={{ marginTop: 10, fontSize: 12, color: 'var(--muted)', lineHeight: 1.7 }}>
+            <p>• EPG source auto-refresh is handled by Stationarr’s scheduler.</p>
+            <p>• The sidecar scraper cron is separate from Stationarr scheduling.</p>
+            <p>• Immediate <strong style={{ color: 'var(--text)' }}>Run now</strong> from Stationarr requires Docker socket access.</p>
+            <p>• EPG sources with auto-refresh enabled are checked by Stationarr’s scheduler.</p>
+          </div>
+          <div style={{ marginTop: 8, fontSize: 12, color: 'var(--muted)', lineHeight: 1.7 }}>
+            <p>Troubleshooting:</p>
+            <p>• <strong style={{ color: 'var(--text)' }}>0 channels</strong> means no scraper channels are selected.</p>
+            <p>• <strong style={{ color: 'var(--text)' }}>0 programmes</strong> means the source/site returned no programme data, or the scraper channel definition may be invalid.</p>
+          </div>
         </div>
 
         {/* Tabs */}
@@ -432,7 +469,7 @@ export default function ScraperPage() {
             )}
             {runDone && (
               <div style={{ display: 'flex', gap: 8 }}>
-                <button className="btn btn-primary" onClick={() => nav('/settings')}>Go to EPG Sources →</button>
+                <button className="btn btn-primary" onClick={() => setShowEPG(true)}>Go to EPG Sources →</button>
                 <button className="btn" onClick={runScraper}><Play size={12}/> Run again</button>
               </div>
             )}
@@ -450,6 +487,15 @@ export default function ScraperPage() {
         />
       )}
 
+
+
+      {showEPG && (
+        <EPGPanel
+          sources={epgSources}
+          onClose={() => setShowEPG(false)}
+          onChange={onEpgSourceChange}
+        />
+      )}
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   );
