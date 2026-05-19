@@ -27,6 +27,7 @@ COPY backend/src ./src
 COPY backend/package.json ./package.json
 COPY --from=frontend-builder /build/public ./public
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 # Create runtime data dirs (final ownership is enforced at container start)
 RUN mkdir -p /app/data /app/data/scraper && chown -R node:node /app/data
