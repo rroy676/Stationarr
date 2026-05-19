@@ -114,7 +114,9 @@ docker run -d \
   --name stationarr \
   -p 3000:3000 \
   -e JWT_SECRET=change-me-to-something-random \
+  -e SCRAPER_CHANNELS_PATH=/app/data/scraper/channels.xml \
   -v stationarr_data:/app/data \
+  -v stationarr_scraper_shared:/app/data/scraper \
   rroy676/stationarr:latest
 ```
 
@@ -127,6 +129,17 @@ docker compose up -d
 ```
 
 Open `http://localhost:3000` and register your account. The first account is automatically admin.
+
+If you also run the optional iptv-org/epg sidecar, mount the same shared scraper volume at `/epg/public` in that container:
+
+```bash
+docker run -d \
+  --name stationarr-epg \
+  -v stationarr_scraper_shared:/epg/public \
+  ghcr.io/iptv-org/epg:master
+```
+
+> Keep Stationarr `SCRAPER_CHANNELS_PATH` under `/app/data` (recommended: `/app/data/scraper/channels.xml`). Do **not** set it to `/epg/public/channels.xml` because `/epg/public` is the sidecar container path.
 
 ### With iptv-org/epg scraper (optional)
 

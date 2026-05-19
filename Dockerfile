@@ -18,7 +18,7 @@ FROM node:22-alpine3.23
 WORKDIR /app
 
 # Upgrade Alpine packages + add docker-cli for optional EPG scraper feature
-RUN apk upgrade --no-cache && apk add --no-cache docker-cli
+RUN apk upgrade --no-cache && apk add --no-cache docker-cli su-exec
 ENV DOCKER_API_VERSION=1.41
 
 # Copy pre-compiled node_modules — no build tools needed in final image
@@ -26,14 +26,15 @@ COPY --from=backend-builder /app/node_modules ./node_modules
 COPY backend/src ./src
 COPY backend/package.json ./package.json
 COPY --from=frontend-builder /build/public ./public
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
-# Create data dir owned by the node user (non-root)
-RUN mkdir -p /app/data && chown -R node:node /app/data
+# Create runtime data dirs (final ownership is enforced at container start)
+RUN mkdir -p /app/data /app/data/scraper && chown -R node:node /app/data
 
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV DATA_DIR=/app/data
 
 EXPOSE 3000
-USER node
+ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["node", "src/index.js"]
