@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+- Playlist M3U import now classifies obvious VOD/movie/series entries and skips them by default so live-channel counts are clearer and less inflated.
+- Refined VOD-like classifier to prioritize URL-path signals (`/movie/`, `/series/`, `/vod/`) and conservative episode/group heuristics, reducing false positives on legitimate live channels.
+- Added import summary fields (`total_entries`, `imported_live`, `skipped_vod_like`, `include_vod_like`) to the playlist import API response.
+- Scheduler refresh logs now report total parsed entries vs imported live channels and skipped VOD-like entries.
+
 ## [1.0.7] — 2026-05-19
 
 ### Improved

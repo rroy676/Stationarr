@@ -30,7 +30,7 @@ async function refreshPlaylist(pl) {
     const r = await fetch(url, { timeout: 30000, follow: 10, compress: true });
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const text = await r.text();
-    const channels = parseM3U(text);
+    const { channels, counts } = parseM3U(text);
 
     const insert = db.prepare(`
       INSERT INTO channels (playlist_id, name, url, duration, tvg_id, tvg_name, tvg_logo, grp, epg_id, enabled, ord)
@@ -43,7 +43,7 @@ async function refreshPlaylist(pl) {
       db.prepare("UPDATE playlists SET last_refreshed=datetime('now'), updated_at=datetime('now') WHERE id=?").run(pl.id);
     })();
 
-    console.log(`[scheduler] Playlist "${pl.name}" refreshed — ${channels.length} channels`);
+    console.log(`[scheduler] Playlist "${pl.name}" refreshed — ${counts.importedLive}/${counts.totalEntries} live channels imported (${counts.skippedVodLike} VOD-like entries skipped)`);
   } catch (e) {
     console.error(`[scheduler] Failed to refresh playlist "${pl.name}":`, e.message);
   }

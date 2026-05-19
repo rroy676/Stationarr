@@ -138,7 +138,8 @@ router.post('/:id/import', async (req, res) => {
     }
   }
 
-  const channels = parseM3U(m3uText);
+  const includeVodLike = req.body.include_vod_like === true;
+  const { channels, counts } = parseM3U(m3uText, { includeVodLike });
 
   const insert = db.prepare(`
     INSERT INTO channels (playlist_id, name, url, duration, tvg_id, tvg_name, tvg_logo, grp, epg_id, enabled, ord)
@@ -151,7 +152,15 @@ router.post('/:id/import', async (req, res) => {
     db.prepare("UPDATE playlists SET updated_at=datetime('now'), last_refreshed=datetime('now') WHERE id=?").run(pl.id);
   })(channels);
 
-  res.json({ imported: channels.length });
+  res.json({
+    imported: channels.length,
+    import_summary: {
+      total_entries: counts.totalEntries,
+      imported_live: counts.importedLive,
+      skipped_vod_like: counts.skippedVodLike,
+      include_vod_like: includeVodLike,
+    },
+  });
 });
 
 // POST /api/playlists/:id/refresh — manual trigger of auto-refresh
