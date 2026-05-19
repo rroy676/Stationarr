@@ -10,8 +10,20 @@ const DATA_DIR      = process.env.DATA_DIR || './data';
 const SCRAPER_URL   = process.env.SCRAPER_URL || 'http://epg:3000';
 const CHANNELS_PATH = process.env.SCRAPER_CHANNELS_PATH || path.join(DATA_DIR, 'scraper', 'channels.xml');
 
+function getConfiguredChannelCountFromXML() {
+  if (!fs.existsSync(CHANNELS_PATH)) return 0;
+  const xml = fs.readFileSync(CHANNELS_PATH, 'utf8');
+  const matches = xml.match(/<channel\b/g);
+  return matches ? matches.length : 0;
+}
+
 // ── Status ────────────────────────────────────────────────────────
 router.get('/status', requireAuth, async (req, res) => {
+  const enabledCount = db.prepare(
+    'SELECT COUNT(*) AS n FROM scraper_channels WHERE user_id = ? AND enabled = 1'
+  ).get(req.user.id).n || 0;
+  const configuredCount = getConfiguredChannelCountFromXML();
+
   try {
     const r = await fetch(`${SCRAPER_URL}/guide.xml`, { method: 'HEAD', timeout: 5000 });
     const guideSize = r.headers.get('content-length');
@@ -20,9 +32,20 @@ router.get('/status', requireAuth, async (req, res) => {
       url:         SCRAPER_URL,
       guide_url:   `${SCRAPER_URL}/guide.xml`,
       guide_size:  guideSize ? parseInt(guideSize) : null,
+      enabled_channel_count: enabledCount,
+      configured_channel_count: configuredCount,
+      no_channels_configured: configuredCount === 0,
     });
   } catch {
-    res.json({ online: false, url: SCRAPER_URL, guide_url: null, guide_size: null });
+    res.json({
+      online: false,
+      url: SCRAPER_URL,
+      guide_url: null,
+      guide_size: null,
+      enabled_channel_count: enabledCount,
+      configured_channel_count: configuredCount,
+      no_channels_configured: configuredCount === 0,
+    });
   }
 });
 
@@ -115,9 +138,20 @@ router.get('/sites', requireAuth, async (req, res) => {
 
 // ── Proxy guide.xml from scraper ──────────────────────────────────
 router.get('/guide.xml', requireAuth, async (req, res) => {
+  const configuredCount = getConfiguredChannelCountFromXML();
+
   try {
     const r = await fetch(`${SCRAPER_URL}/guide.xml`, { timeout: 30000 });
-    if (!r.ok) throw new Error('HTTP ' + r.status);
+    if (!r.ok) {
+      if (r.status === 404 && configuredCount === 0) {
+        return res.status(404).json({
+          error: 'No guide generated yet because no scraper channels are selected.',
+          code: 'NO_SCRAPER_CHANNELS',
+          configured_channel_count: configuredCount,
+        });
+      }
+      throw new Error('HTTP ' + r.status);
+    }
     res.setHeader('Content-Type', 'application/xml; charset=utf-8');
     r.body.pipe(res);
   } catch (e) {
@@ -205,6 +239,11 @@ router.get('/run', async (req, res) => {
   };
 
   const scraperUrl = process.env.SCRAPER_URL || 'http://epg:3000';
+  const configuredCount = getConfiguredChannelCountFromXML();
+  if (configuredCount === 0) {
+    send({ type: 'error', msg: 'No scraper channels are configured. Add and enable at least one channel before running.' });
+    return res.end();
+  }
 
   send({ type: 'log', msg: `Connecting to scraper at ${scraperUrl}...` });
 

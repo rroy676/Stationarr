@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased]
+
+### Improved
+- EPG Scraper now reports when `channels.xml` has zero selected channels, shows clearer UI warnings, blocks manual runs with no configured channels, and returns a friendly 404 message for `/api/scraper/guide.xml` when no guide can be generated.
+
 ## [1.0.6] — 2026-05-16
 
 ### Fixed
