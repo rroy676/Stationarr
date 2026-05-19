@@ -1,9 +1,29 @@
 /**
  * Parse an M3U/M3U8 playlist string into an array of channel objects.
  */
-function parseM3U(text) {
+function classifyEntry({ attrs, name = '', url = '' }) {
+  const group = (attrs['group-title'] || '').toLowerCase();
+  const tvgName = (attrs['tvg-name'] || '').toLowerCase();
+  const lowerName = (name || '').toLowerCase();
+  const lowerUrl = (url || '').toLowerCase();
+
+  const combined = `${group} ${tvgName} ${lowerName}`;
+  const vodKeywordRe = /\b(vod|movie|movies|film|films|serie|series|s\d+\s*e\d+|season\s*\d+|episode\s*\d+)\b/;
+  const urlVodRe = /\/(movie|series|vod)\//;
+
+  const looksLikeVod = vodKeywordRe.test(combined) || urlVodRe.test(lowerUrl);
+  return looksLikeVod ? 'vod_like' : 'live';
+}
+
+function parseM3U(text, options = {}) {
+  const { includeVodLike = false } = options;
   const lines = text.split(/\r?\n/).filter(l => l.trim());
   const channels = [];
+  const counts = {
+    totalEntries: 0,
+    importedLive: 0,
+    skippedVodLike: 0,
+  };
   let i = lines[0]?.startsWith('#EXTM3U') ? 1 : 0;
 
   while (i < lines.length) {
@@ -27,6 +47,14 @@ function parseM3U(text) {
     // Channel display name is everything after the last comma
     const name = (line.match(/,(.+)$/) || [, ''])[1].trim() || attrs['tvg-name'] || 'Unknown';
 
+    counts.totalEntries += 1;
+    const classification = classifyEntry({ attrs, name, url });
+    if (classification === 'vod_like' && !includeVodLike) {
+      counts.skippedVodLike += 1;
+      i = j + 1;
+      continue;
+    }
+
     channels.push({
       name,
       url,
@@ -38,11 +66,12 @@ function parseM3U(text) {
       epg_id:    '',
       enabled:   1,
     });
+    counts.importedLive += 1;
 
     i = j + 1;
   }
 
-  return channels;
+  return { channels, counts };
 }
 
 /**
