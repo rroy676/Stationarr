@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+- Scraper channel add flow now resolves and stores valid site-specific `site_id`/`xmltv_id` definitions from iptv-org/epg instead of guessing `site_id` from a channel id.
+- Added fallback lookup + clear error messaging when a site-specific scraper channel definition cannot be found for the selected site/channel pair.
+- Scraper channel-definition lookup now supports standard Docker Compose deployments by falling back to iptv-org/epg GitHub site files when local `/epg/sites` definitions are not mounted into the Stationarr container.
+- Scraper definition lookup now also checks nested iptv-org/epg site paths (e.g. `sites/tvguide.com/tvguide.com.channels.xml`) for both local and GitHub fallback sources.
+
 ## [1.0.8] — 2026-05-19
 
 ### Changed
