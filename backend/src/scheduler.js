@@ -9,14 +9,10 @@ const fetch = require('node-fetch');
 const { parseM3U }  = require('./utils/m3u');
 const { parseXMLTVBuffer } = require('./utils/xmltv');
 const { saveEPGCache } = require('./utils/xmltv-merge');
+const { countProgrammeEntriesFromBuffer } = require('./utils/xmltv-programme-count');
 
 const DATA_DIR    = process.env.DATA_DIR || './data';
 const CHECK_EVERY = 15 * 60 * 1000; // 15 minutes
-function countProgrammeEntriesFromText(text) {
-  const matches = String(text || '').match(/<programme\b/g);
-  return matches ? matches.length : 0;
-}
-
 function buildM3UUrl(pl) {
   if (pl.source_type === 'xtream' && pl.source_server && pl.source_username && pl.source_password) {
     const base = pl.source_server.replace(/\/$/, '');
@@ -63,7 +59,7 @@ async function refreshEPGSource(src) {
     const buf = await r.buffer();
     const channels = await parseXMLTVBuffer(buf);
     const { cachePath, size } = saveEPGCache(DATA_DIR, src.id, buf);
-    const programmeCount = countProgrammeEntriesFromText(buf.toString('utf8'));
+    const programmeCount = countProgrammeEntriesFromBuffer(buf);
 
     const insert = db.prepare('INSERT INTO epg_channels (source_id, tvg_id, name, icon) VALUES (?,?,?,?)');
     db.transaction(() => {

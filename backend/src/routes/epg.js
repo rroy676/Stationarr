@@ -4,15 +4,12 @@ const requireAuth = require('../middleware/auth');
 const { parseXMLTV, parseXMLTVBuffer } = require('../utils/xmltv');
 const { saveEPGCache, deleteEPGCache } = require('../utils/xmltv-merge');
 const { readProgrammes } = require('../utils/epg-reader');
+const { countProgrammeEntriesFromBuffer } = require('../utils/xmltv-programme-count');
 const fetch   = require('node-fetch');
 const path    = require('path');
 const fs      = require('fs');
 
 const DATA_DIR = process.env.DATA_DIR || './data';
-function countProgrammeEntriesFromText(text) {
-  const matches = String(text || '').match(/<programme\b/g);
-  return matches ? matches.length : 0;
-}
 
 router.use(requireAuth);
 
@@ -120,7 +117,7 @@ router.get('/:id/fetch-stream', async (req, res) => {
     // Clear guide cache so next guide load is fresh
     try { require('./guide').clearCache(); } catch {}
 
-    const programmeCount = countProgrammeEntriesFromText(buf.toString('utf8'));
+    const programmeCount = countProgrammeEntriesFromBuffer(buf);
     send({ phase: 'done', loaded: channels.length, cache_size: size, programme_count: programmeCount });
     res.end();
   } catch (e) {
@@ -162,7 +159,7 @@ router.post('/:id/fetch', async (req, res) => {
     const cachePath = path.join(DATA_DIR, 'epg_cache', `source_${src.id}.xml`);
     fs.renameSync(tmpPath, cachePath);
 
-    const programmeCount = countProgrammeEntriesFromText(fs.readFileSync(cachePath, 'utf8'));
+    const programmeCount = countProgrammeEntriesFromBuffer(fs.readFileSync(cachePath));
     storeEPGChannels(src.id, channels, cachePath, size, programmeCount);
     try { require('./guide').clearCache(); } catch {}
     res.json({ loaded: channels.length, cache_size: size, cached: true, programme_count: programmeCount });
@@ -183,7 +180,7 @@ router.post('/:id/upload', async (req, res) => {
     const buf      = Buffer.from(content, 'utf8');
     const channels = await parseXMLTVBuffer(buf);
     const { cachePath, size } = saveEPGCache(DATA_DIR, src.id, buf);
-    const programmeCount = countProgrammeEntriesFromText(buf.toString('utf8'));
+    const programmeCount = countProgrammeEntriesFromBuffer(buf);
     storeEPGChannels(src.id, channels, cachePath, size, programmeCount);
     try { require('./guide').clearCache(); } catch {}
     res.json({ loaded: channels.length, cache_size: size, cached: true, programme_count: programmeCount });

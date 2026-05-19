@@ -11,6 +11,7 @@
 ### Improved
 - EPG source cache status now shows programme counts alongside channel counts, cache size, and cache age in the EPG Sources modal.
 - EPG fetch/upload/manual refresh flows now return and display `programme_count`, and scheduler refreshes now count/store/log programme totals.
+- Programme counting now handles both plain XMLTV and `.xml.gz` sources safely when calculating `programme_count`.
 - Added a new “How the EPG scraper works” help section on the EPG Scraper page with clearer sidecar vs Stationarr scheduler behaviour.
 - Added troubleshooting hints for common scraper outcomes: `0 channels` and `0 programmes`.
 
