@@ -157,7 +157,7 @@ export default function ScraperPage() {
       await api.addChannel({
         xmltv_id: ch.id,
         site:     site.site,
-        site_id:  ch.id.split('.')[0],
+        channel_id: ch.id,
         name:     ch.name,
         lang:     ch.languages?.split(';')[0]?.trim() || 'en',
       });

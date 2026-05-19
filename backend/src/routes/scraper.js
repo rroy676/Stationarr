@@ -9,6 +9,7 @@ const { exec, spawn } = require('child_process');
 const DATA_DIR      = process.env.DATA_DIR || './data';
 const SCRAPER_URL   = process.env.SCRAPER_URL || 'http://epg:3000';
 const CHANNELS_PATH = process.env.SCRAPER_CHANNELS_PATH || path.join(DATA_DIR, 'scraper', 'channels.xml');
+const EPG_SITES_DIR = process.env.EPG_SITES_DIR || '/epg/sites';
 
 function getConfiguredChannelCountFromXML() {
   if (!fs.existsSync(CHANNELS_PATH)) return 0;
@@ -69,18 +70,26 @@ router.get('/channels', requireAuth, (req, res) => {
 
 // ── Add channel ───────────────────────────────────────────────────
 router.post('/channels', requireAuth, (req, res) => {
-  const { xmltv_id, site, site_id, name, lang } = req.body;
-  if (!xmltv_id || !site || !site_id || !name) {
-    return res.status(400).json({ error: 'xmltv_id, site, site_id, name required' });
+  const { xmltv_id, site, site_id, name, lang, channel_id } = req.body;
+  if (!site || !name) {
+    return res.status(400).json({ error: 'site and name required' });
+  }
+
+  const resolved = resolveScraperChannelDefinition({ site, xmltv_id, site_id, name, channel_id });
+  if (!resolved.ok) {
+    return res.status(422).json({
+      error: resolved.error,
+      hint: 'Pick a different site for this channel, or update scraper definitions so this site/channel pair exists in iptv-org/epg.',
+    });
   }
 
   // Check not duplicate
-  const exists = db.prepare('SELECT id FROM scraper_channels WHERE user_id = ? AND xmltv_id = ? AND site = ?').get(req.user.id, xmltv_id, site);
+  const exists = db.prepare('SELECT id FROM scraper_channels WHERE user_id = ? AND xmltv_id = ? AND site = ?').get(req.user.id, resolved.xmltv_id, site);
   if (exists) return res.status(409).json({ error: 'Channel already added for this site' });
 
   const result = db.prepare(
     'INSERT INTO scraper_channels (user_id, xmltv_id, site, site_id, name, lang) VALUES (?,?,?,?,?,?)'
-  ).run(req.user.id, xmltv_id, site, site_id, name, lang || 'en');
+  ).run(req.user.id, resolved.xmltv_id, site, resolved.site_id, name, lang || 'en');
 
   const ch = db.prepare('SELECT * FROM scraper_channels WHERE id = ?').get(result.lastInsertRowid);
   writeChannelsXML(req.user.id);
@@ -205,6 +214,72 @@ function parseCSV(text) {
     header.forEach((h, i) => obj[h] = vals[i] || '');
     return obj;
   }).filter(ch => ch.id && ch.name);
+}
+
+function resolveScraperChannelDefinition({ site, xmltv_id, site_id, name, channel_id }) {
+  // Preserve site-specific definition when client already provides both fields
+  if (xmltv_id && site_id) return { ok: true, xmltv_id, site_id };
+
+  const defs = loadSiteChannelDefinitions(site);
+  if (!defs.length) {
+    return { ok: false, error: `No scraper channel definitions found for site "${site}".` };
+  }
+
+  const norm = (v) => String(v || '').trim().toLowerCase();
+  const byId = defs.find(d => norm(d.xmltv_id) === norm(xmltv_id));
+  if (byId) return { ok: true, xmltv_id: byId.xmltv_id, site_id: byId.site_id };
+
+  const byChannelId = defs.find(d => norm(d.channel_id) === norm(channel_id));
+  if (byChannelId) return { ok: true, xmltv_id: byChannelId.xmltv_id, site_id: byChannelId.site_id };
+
+  const byName = defs.find(d => norm(d.name) === norm(name));
+  if (byName) return { ok: true, xmltv_id: byName.xmltv_id, site_id: byName.site_id };
+
+  return { ok: false, error: `No valid site_id mapping found for "${name}" on ${site}.` };
+}
+
+function loadSiteChannelDefinitions(site) {
+  const xml = readSiteChannelsXML(site);
+  if (!xml) return [];
+  return parseSiteChannelsXML(xml);
+}
+
+function readSiteChannelsXML(site) {
+  const safe = String(site || '').replace(/[^a-zA-Z0-9._-]/g, '');
+  const candidates = [
+    path.join(EPG_SITES_DIR, safe + '.channels.xml'),
+    path.join(EPG_SITES_DIR, safe, 'channels.xml'),
+    path.join(EPG_SITES_DIR, safe + '.xml'),
+  ];
+  for (const file of candidates) {
+    if (fs.existsSync(file)) return fs.readFileSync(file, 'utf8');
+  }
+  return null;
+}
+
+function parseSiteChannelsXML(xml) {
+  const out = [];
+  const regex = /<channel\b([^>]*)>([^<]*)<\/channel>/g;
+  let match;
+  while ((match = regex.exec(xml)) !== null) {
+    const attrs = parseXmlAttrs(match[1]);
+    if (!attrs.site_id || !attrs.xmltv_id) continue;
+    out.push({
+      site_id: attrs.site_id,
+      xmltv_id: attrs.xmltv_id,
+      channel_id: attrs.channel_id || '',
+      name: (match[2] || '').trim(),
+    });
+  }
+  return out;
+}
+
+function parseXmlAttrs(attrStr) {
+  const attrs = {};
+  const regex = /(\w+)="([^"]*)"/g;
+  let m;
+  while ((m = regex.exec(attrStr)) !== null) attrs[m[1]] = m[2];
+  return attrs;
 }
 
 // Curated list of well-supported scraper sites
