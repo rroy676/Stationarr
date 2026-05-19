@@ -3,16 +3,28 @@
  */
 function classifyEntry({ attrs, name = '', url = '' }) {
   const group = (attrs['group-title'] || '').toLowerCase();
-  const tvgName = (attrs['tvg-name'] || '').toLowerCase();
-  const lowerName = (name || '').toLowerCase();
   const lowerUrl = (url || '').toLowerCase();
+  const lowerName = (name || '').toLowerCase();
+  const tvgName = (attrs['tvg-name'] || '').toLowerCase();
 
-  const combined = `${group} ${tvgName} ${lowerName}`;
-  const vodKeywordRe = /\b(vod|movie|movies|film|films|serie|series|s\d+\s*e\d+|season\s*\d+|episode\s*\d+)\b/;
+  // Heuristic notes:
+  // 1) URL path is the strongest signal for Xtream-style VOD/movie/series entries.
+  // 2) Episode patterns in names are strong signals for series episodes, even without URL hints.
+  // 3) Group-name checks are intentionally conservative and only match obviously VOD-only buckets.
+  //    We intentionally do NOT treat generic words in channel names (movie/film/series) as enough to skip,
+  //    because that can hide legitimate live channels.
   const urlVodRe = /\/(movie|series|vod)\//;
+  const episodePatternRe = /\b(s\d{1,2}\s*e\d{1,3}|\d{1,2}x\d{1,3}|season\s*\d{1,2}\s*episode\s*\d{1,3}|episode\s*\d{1,3})\b/;
+  const vodGroupRe = /^\s*(vod|movies?|series)\s*([|\-:/].*)?$/;
 
-  const looksLikeVod = vodKeywordRe.test(combined) || urlVodRe.test(lowerUrl);
-  return looksLikeVod ? 'vod_like' : 'live';
+  if (urlVodRe.test(lowerUrl)) return 'vod_like';
+
+  const combinedName = `${lowerName} ${tvgName}`.trim();
+  if (episodePatternRe.test(combinedName)) return 'vod_like';
+
+  if (vodGroupRe.test(group)) return 'vod_like';
+
+  return 'live';
 }
 
 function parseM3U(text, options = {}) {
