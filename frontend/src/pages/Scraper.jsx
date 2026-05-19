@@ -254,6 +254,28 @@ export default function ScraperPage() {
           )}
         </div>
 
+        <div className="card" style={{ background: 'var(--surface2)' }}>
+          <p style={{ fontWeight: 600, marginBottom: 8 }}>How the EPG scraper works</p>
+          <ol className="text-sm text-muted" style={{ margin: 0, paddingLeft: 18, lineHeight: 1.8 }}>
+            <li>Add scraper channels from a supported source/site.</li>
+            <li>Run the scraper now, or let the sidecar run on its own cron schedule.</li>
+            <li>Stationarr fetches and caches <span className="mono">guide.xml</span> into EPG Sources.</li>
+            <li>Match playlist channels to EPG IDs.</li>
+            <li>Open the Guide.</li>
+          </ol>
+          <div style={{ marginTop: 10, fontSize: 12, color: 'var(--muted)', lineHeight: 1.7 }}>
+            <p>• EPG source auto-refresh is handled by Stationarr’s scheduler.</p>
+            <p>• The sidecar scraper cron is separate from Stationarr scheduling.</p>
+            <p>• Immediate <strong style={{ color: 'var(--text)' }}>Run now</strong> from Stationarr requires Docker socket access.</p>
+            <p>• EPG sources with auto-refresh enabled are checked by Stationarr’s scheduler.</p>
+          </div>
+          <div style={{ marginTop: 8, fontSize: 12, color: 'var(--muted)', lineHeight: 1.7 }}>
+            <p>Troubleshooting:</p>
+            <p>• <strong style={{ color: 'var(--text)' }}>0 channels</strong> means no scraper channels are selected.</p>
+            <p>• <strong style={{ color: 'var(--text)' }}>0 programmes</strong> means the source/site returned no programme data, or the scraper channel definition may be invalid.</p>
+          </div>
+        </div>
+
         {/* Tabs */}
         <div style={{ display: 'flex', borderBottom: '1px solid var(--border2)' }}>
           {[

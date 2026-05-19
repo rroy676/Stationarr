@@ -12,6 +12,10 @@ const { saveEPGCache } = require('./utils/xmltv-merge');
 
 const DATA_DIR    = process.env.DATA_DIR || './data';
 const CHECK_EVERY = 15 * 60 * 1000; // 15 minutes
+function countProgrammeEntriesFromText(text) {
+  const matches = String(text || '').match(/<programme\b/g);
+  return matches ? matches.length : 0;
+}
 
 function buildM3UUrl(pl) {
   if (pl.source_type === 'xtream' && pl.source_server && pl.source_username && pl.source_password) {
@@ -59,6 +63,7 @@ async function refreshEPGSource(src) {
     const buf = await r.buffer();
     const channels = await parseXMLTVBuffer(buf);
     const { cachePath, size } = saveEPGCache(DATA_DIR, src.id, buf);
+    const programmeCount = countProgrammeEntriesFromText(buf.toString('utf8'));
 
     const insert = db.prepare('INSERT INTO epg_channels (source_id, tvg_id, name, icon) VALUES (?,?,?,?)');
     db.transaction(() => {
@@ -66,13 +71,13 @@ async function refreshEPGSource(src) {
       channels.forEach(c => insert.run(src.id, c.id, c.name, c.icon || ''));
       db.prepare(`
         UPDATE epg_sources
-        SET last_fetched=datetime('now'), channel_count=?, cache_path=?, cache_size=?,
+        SET last_fetched=datetime('now'), channel_count=?, programme_count=?, cache_path=?, cache_size=?,
             cache_updated=datetime('now'), last_refreshed=datetime('now')
         WHERE id=?
-      `).run(channels.length, cachePath, size, src.id);
+      `).run(channels.length, programmeCount, cachePath, size, src.id);
     })();
 
-    console.log(`[scheduler] EPG source "${src.name}" refreshed — ${channels.length} channels, ${(size/1024/1024).toFixed(1)} MB`);
+    console.log(`[scheduler] EPG source "${src.name}" refreshed — ${channels.length} channels, ${programmeCount} programmes, ${(size/1024/1024).toFixed(1)} MB`);
   } catch (e) {
     console.error(`[scheduler] Failed to refresh EPG source "${src.name}":`, e.message);
   }
