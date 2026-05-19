@@ -6,8 +6,13 @@ const { saveEPGCache, deleteEPGCache } = require('../utils/xmltv-merge');
 const { readProgrammes } = require('../utils/epg-reader');
 const fetch   = require('node-fetch');
 const path    = require('path');
+const fs      = require('fs');
 
 const DATA_DIR = process.env.DATA_DIR || './data';
+function countProgrammeEntriesFromText(text) {
+  const matches = String(text || '').match(/<programme\b/g);
+  return matches ? matches.length : 0;
+}
 
 router.use(requireAuth);
 
@@ -129,7 +134,6 @@ router.post('/:id/fetch', async (req, res) => {
   if (!src) return res.status(404).json({ error: 'Not found' });
   if (!src.url) return res.status(400).json({ error: 'Source has no URL' });
 
-  const fs   = require('fs');
   const path = require('path');
   const tmpPath = path.join(DATA_DIR, 'epg_cache', `tmp_${src.id}.xml`);
 
@@ -159,7 +163,8 @@ router.post('/:id/fetch', async (req, res) => {
 
     storeEPGChannels(src.id, channels, cachePath, size);
     try { require('./guide').clearCache(); } catch {}
-    res.json({ loaded: channels.length, cache_size: size, cached: true });
+    const programmeCount = countProgrammeEntriesFromText(fs.readFileSync(cachePath, 'utf8'));
+    res.json({ loaded: channels.length, cache_size: size, cached: true, programme_count: programmeCount });
   } catch (e) {
     // Clean up tmp file on error
     try { require('fs').unlinkSync(tmpPath); } catch {}
@@ -179,7 +184,8 @@ router.post('/:id/upload', async (req, res) => {
     const { cachePath, size } = saveEPGCache(DATA_DIR, src.id, buf);
     storeEPGChannels(src.id, channels, cachePath, size);
     try { require('./guide').clearCache(); } catch {}
-    res.json({ loaded: channels.length, cache_size: size, cached: true });
+    const programmeCount = countProgrammeEntriesFromText(buf.toString('utf8'));
+    res.json({ loaded: channels.length, cache_size: size, cached: true, programme_count: programmeCount });
   } catch (e) {
     res.status(500).json({ error: 'Parse failed: ' + e.message });
   }

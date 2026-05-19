@@ -17,6 +17,19 @@ function getConfiguredChannelCountFromXML() {
   return matches ? matches.length : 0;
 }
 
+async function getGuideStats(scraperUrl) {
+  try {
+    const r = await fetch(`${scraperUrl}/guide.xml`, { timeout: 30000 });
+    if (!r.ok) return null;
+    const xml = await r.text();
+    const channelCount = (xml.match(/<channel\b/g) || []).length;
+    const programmeCount = (xml.match(/<programme\b/g) || []).length;
+    return { channelCount, programmeCount };
+  } catch {
+    return null;
+  }
+}
+
 // ── Status ────────────────────────────────────────────────────────
 router.get('/status', requireAuth, async (req, res) => {
   const enabledCount = db.prepare(
@@ -237,6 +250,13 @@ router.get('/run', async (req, res) => {
   const send = (data) => {
     try { res.write(`data: ${JSON.stringify(data)}\n\n`); } catch {}
   };
+  const runLines = [];
+  const pushRunLine = (line) => {
+    const trimmed = (line || '').trim();
+    if (!trimmed) return;
+    runLines.push(trimmed);
+    send({ type: 'log', msg: trimmed });
+  };
 
   const scraperUrl = process.env.SCRAPER_URL || 'http://epg:3000';
   const configuredCount = getConfiguredChannelCountFromXML();
@@ -286,13 +306,27 @@ router.get('/run', async (req, res) => {
     const proc = spawn('docker', ['exec', '-w', '/epg', epgContainer, 'npm', 'run', 'grab', '--', '--channels=/epg/public/channels.xml']);
 
     proc.stdout.on('data', (d) => {
-      d.toString().split('\n').filter(l => l.trim()).forEach(line => send({ type: 'log', msg: line }));
+      d.toString().split('\n').forEach(pushRunLine);
     });
     proc.stderr.on('data', (d) => {
-      d.toString().split('\n').filter(l => l.trim()).forEach(line => send({ type: 'log', msg: line }));
+      d.toString().split('\n').forEach(pushRunLine);
     });
-    proc.on('close', (code) => {
+    proc.on('close', async (code) => {
       if (code === 0 || code === null) {
+        const zeroProgramLines = runLines.filter(l => /\(0 programs\)/i.test(l));
+        if (zeroProgramLines.length > 0) {
+          send({ type: 'warning', msg: 'Scraper ran, but no programmes were found for the selected channels/source.' });
+          send({ type: 'warning', msg: 'Try another scraper source/site for this channel.' });
+          zeroProgramLines.slice(0, 5).forEach(l => send({ type: 'warning', msg: `↳ ${l}` }));
+        }
+        const stats = await getGuideStats(scraperUrl);
+        if (stats) {
+          send({ type: 'log', msg: `Generated guide.xml contains ${stats.channelCount} channel(s) and ${stats.programmeCount} programme(s).` });
+          if (stats.channelCount > 0 && stats.programmeCount === 0) {
+            send({ type: 'warning', msg: 'Scraper ran, but no programmes were found for the selected channels/source.' });
+            send({ type: 'warning', msg: 'Try another scraper source/site for this channel.' });
+          }
+        }
         send({ type: 'done', msg: 'Scrape completed! Stationarr will now fetch the guide...' });
       } else {
         send({ type: 'error', msg: `Scraper exited with code ${code}` });
