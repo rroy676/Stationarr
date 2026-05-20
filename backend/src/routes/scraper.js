@@ -16,7 +16,7 @@ const siteDefCache = new Map();
 
 const XMLTV_VARIANT_SUFFIX_RE = /@(SD|HD|FHD|UHD)$/i;
 
-function normalizeScraperXmltvIdForSite(xmltvId, site, defs) {
+function normalizeScraperXmltvIdForOutput(xmltvId) {
   const original = String(xmltvId || '').trim();
   if (!original) {
     return { normalized: original, changed: false, reason: 'empty' };
@@ -26,27 +26,11 @@ function normalizeScraperXmltvIdForSite(xmltvId, site, defs) {
     return { normalized: original, changed: false, reason: 'no-variant-suffix' };
   }
 
-  const withoutVariant = original.replace(XMLTV_VARIANT_SUFFIX_RE, '');
-  const norm = (v) => String(v || '').trim().toLowerCase();
-  const normalizedCandidate = norm(withoutVariant);
-  const definitions = Array.isArray(defs) ? defs : [];
-
-  const exactVariantExists = definitions.some((d) => norm(d.xmltv_id) === norm(original));
-  const baseVariantExists = definitions.some((d) => norm(d.xmltv_id) === normalizedCandidate);
-
-  if (baseVariantExists && exactVariantExists) {
-    return { normalized: original, changed: false, reason: 'both-forms-defined' };
-  }
-
-  if (baseVariantExists) {
-    return { normalized: withoutVariant, changed: true, reason: 'base-variant-defined' };
-  }
-
-  if (exactVariantExists) {
-    return { normalized: original, changed: false, reason: 'variant-required-by-site' };
-  }
-
-  return { normalized: original, changed: false, reason: 'no-safe-normalization-target' };
+  return {
+    normalized: original.replace(XMLTV_VARIANT_SUFFIX_RE, ''),
+    changed: true,
+    reason: 'quality-variant-stripped',
+  };
 }
 
 function getConfiguredChannelCountFromXML() {
@@ -241,7 +225,22 @@ function writeChannelsXML(userId) {
     'SELECT * FROM scraper_channels WHERE user_id = ? AND enabled = 1 ORDER BY site, name'
   ).all(userId);
 
-  const xml = buildChannelsXML(channels);
+  const outputChannels = channels.map((ch) => {
+    const normalized = normalizeScraperXmltvIdForOutput(ch.xmltv_id);
+    if (normalized.changed) {
+      console.info('[scraper] normalized xmltv_id for channels.xml output', {
+        site: ch.site,
+        site_id: ch.site_id,
+        original_xmltv_id: ch.xmltv_id,
+        resolved_xmltv_id: ch.xmltv_id,
+        final_xmltv_id: normalized.normalized,
+        normalization_reason: normalized.reason,
+      });
+    }
+    return { ...ch, xmltv_id: normalized.normalized };
+  });
+
+  const xml = buildChannelsXML(outputChannels);
   const dir  = path.dirname(CHANNELS_PATH);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(CHANNELS_PATH, xml, 'utf8');
@@ -275,7 +274,7 @@ async function resolveScraperChannelDefinition({ site, xmltv_id, site_id, name, 
 
   // Preserve site-specific definition when client already provides both fields
   if (xmltv_id && site_id) {
-    const normalized = normalizeScraperXmltvIdForSite(xmltv_id, site, defs);
+    const normalized = normalizeScraperXmltvIdForOutput(xmltv_id);
     console.info('[scraper] resolved channel mapping', {
       site,
       site_id,
@@ -296,7 +295,7 @@ async function resolveScraperChannelDefinition({ site, xmltv_id, site_id, name, 
 
   const norm = (v) => String(v || '').trim().toLowerCase();
   const logResolution = (matchType, originalXmltvId, resolvedXmltvId, resolvedSiteId) => {
-    const normalized = normalizeScraperXmltvIdForSite(resolvedXmltvId, site, defs);
+    const normalized = normalizeScraperXmltvIdForOutput(resolvedXmltvId);
     console.info('[scraper] resolved channel mapping', {
       site,
       site_id: resolvedSiteId,
