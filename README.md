@@ -158,6 +158,19 @@ docker compose up -d
 >
 > **First run behaviour (important):** If Docker socket access is not mounted, Stationarr cannot trigger the sidecar immediately. On fresh installs, `guide.xml` may not exist yet and will return `404` until the sidecar cron job runs (default every 6 hours) or you run the sidecar manually (`docker exec ... npm run grab -- --channels=/epg/public/channels.xml --output=/epg/public/guide.xml`).
 
+
+### EPG scraper troubleshooting (v1.0.9+)
+
+If your scraper setup worked before but guide entries are now missing, check the following:
+
+- **Re-add older scraper channels:** scraper channels created **before v1.0.9 (2026-05-19)** may contain legacy/invalid mappings. Remove and re-add those channels from **Settings → EPG Scraper** so Stationarr saves valid site-specific mappings.
+- **Use site-specific mapping values:** each scraper entry needs a valid `xmltv_id` + site mapping pair from the selected site definition (for example `xmltv_id="ESPN.us@SD"` and `site_id="9200006937"`).
+- **First run depends on Docker socket access:**
+  - With `/var/run/docker.sock` mounted in Stationarr, **Run now** can trigger the sidecar immediately.
+  - Without Docker socket access, Stationarr cannot start the sidecar run directly. Wait for the sidecar cron job or run it manually with `docker exec`.
+- **`guide.xml` existing is not enough:** the file can exist but still contain zero `<programme>` entries. Always verify both channel count and programme count.
+- **Cached source still needs channel matching:** even if `iptv-org/epg (scraper)` is cached in EPG Sources, guide data will not appear in the Guide until playlist channels are matched to EPG IDs in Channel Editor.
+
 ### First-run notes by deployment type
 
 - **Docker Compose (`docker compose up -d`)**

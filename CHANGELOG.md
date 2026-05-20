@@ -15,6 +15,7 @@
 - Docker entrypoint now relaxes permissions on a mounted `/var/run/docker.sock` before dropping privileges so the non-root `node` user can access Docker CLI for scraper "Run now".
 
 ### Documentation
+- Added EPG scraper troubleshooting guidance for v1.0.9 mapping changes, including re-add instructions for pre-v1.0.9 channels, first-run socket/cron behavior, `guide.xml` vs programme-count caveat, and site-specific mapping examples.
 - Updated `docker run` and `docker-compose` examples to use the correct shared volume mapping: Stationarr writes `/app/data/scraper/channels.xml` and the EPG sidecar mounts that same volume at `/epg/public`.
 - Documented first-run scraper behaviour for Docker Compose and Docker Run when Docker socket access is not mounted.
 
