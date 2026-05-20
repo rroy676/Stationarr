@@ -1,7 +1,7 @@
 import HeaderButtons from '../components/HeaderButtons.jsx';
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Tv, Rss, Download, Upload } from 'lucide-react';
+import { ArrowLeft, Tv, Rss, Download, Upload, FileText } from 'lucide-react';
 import { applyTheme, getTheme } from '../components/ThemeToggle.jsx';
 import { auth as api, backup as backupApi, epg as epgApi } from '../api.js';
 import { useAuth, useToast } from '../context.jsx';
@@ -197,6 +197,18 @@ export default function Settings() {
           >
             Open EPG Sources
           </button>
+        </div>
+
+
+        <div>
+          <h2 style={{ fontSize: 15, fontWeight: 600, marginBottom: 12 }}>System</h2>
+          <div className='card' style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+            <div>
+              <p style={{ fontWeight:500, marginBottom:4 }}>Application logs</p>
+              <p className='text-sm text-muted'>View recent Stationarr events and export a sanitized debug log for support.</p>
+            </div>
+            <button className='btn btn-sm btn-primary' onClick={() => nav('/logs')}><FileText size={13}/> Open Logs</button>
+          </div>
         </div>
 
         {/* Backup & Restore */}

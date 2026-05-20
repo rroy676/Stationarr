@@ -8,6 +8,7 @@ const { countProgrammeEntriesFromBuffer } = require('../utils/xmltv-programme-co
 const fetch   = require('node-fetch');
 const path    = require('path');
 const fs      = require('fs');
+const logger  = require('../logger');
 
 const DATA_DIR = process.env.DATA_DIR || './data';
 
@@ -135,6 +136,7 @@ router.post('/:id/fetch', async (req, res) => {
   const path = require('path');
   const tmpPath = path.join(DATA_DIR, 'epg_cache', `tmp_${src.id}.xml`);
 
+  logger.info('epg', 'Manual EPG source fetch started', { source_id: src.id, source_name: src.name });
   try {
     const r = await fetch(src.url, { timeout: 120000, follow: 10, compress: true });
     if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -162,10 +164,12 @@ router.post('/:id/fetch', async (req, res) => {
     const programmeCount = countProgrammeEntriesFromBuffer(fs.readFileSync(cachePath));
     storeEPGChannels(src.id, channels, cachePath, size, programmeCount);
     try { require('./guide').clearCache(); } catch {}
+    logger.info('epg', 'Manual EPG source fetch success', { source_id: src.id, channels: channels.length, programmes: programmeCount });
     res.json({ loaded: channels.length, cache_size: size, cached: true, programme_count: programmeCount });
   } catch (e) {
     // Clean up tmp file on error
     try { require('fs').unlinkSync(tmpPath); } catch {}
+    logger.error('epg', 'Manual EPG source fetch failure', { source_id: src.id, error: e?.message || String(e) });
     res.status(502).json({ error: 'Fetch failed: ' + e.message });
   }
 });
@@ -183,6 +187,7 @@ router.post('/:id/upload', async (req, res) => {
     const programmeCount = countProgrammeEntriesFromBuffer(buf);
     storeEPGChannels(src.id, channels, cachePath, size, programmeCount);
     try { require('./guide').clearCache(); } catch {}
+    logger.info('epg', 'Manual EPG source fetch success', { source_id: src.id, channels: channels.length, programmes: programmeCount });
     res.json({ loaded: channels.length, cache_size: size, cached: true, programme_count: programmeCount });
   } catch (e) {
     res.status(500).json({ error: 'Parse failed: ' + e.message });
@@ -202,10 +207,14 @@ router.delete('/:id/cache', (req, res) => {
 router.post('/:id/refresh', async (req, res) => {
   const src = db.prepare('SELECT * FROM epg_sources WHERE id=? AND user_id=?').get(req.params.id, req.user.id);
   if (!src) return res.status(404).json({ error: 'Not found' });
+  logger.info('epg', 'Manual EPG source refresh started', { source_id: src.id, source_name: src.name });
   try {
     await require('../scheduler').refreshEPGSource(src);
-    res.json(db.prepare('SELECT * FROM epg_sources WHERE id=?').get(src.id));
+    const updated = db.prepare('SELECT * FROM epg_sources WHERE id=?').get(src.id);
+    logger.info('epg', 'Manual EPG source refresh success', { source_id: src.id, channels: updated?.channel_count || 0, programmes: updated?.programme_count || 0 });
+    res.json(updated);
   } catch (e) {
+    logger.error('epg', 'Manual EPG source refresh failure', { source_id: src.id, error: e?.message || String(e) });
     res.status(502).json({ error: e.message });
   }
 });

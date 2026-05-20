@@ -5,6 +5,7 @@ const fetch  = require('node-fetch');
 const fs     = require('fs');
 const path   = require('path');
 const { exec, spawn } = require('child_process');
+const logger = require('../logger');
 
 const DATA_DIR      = process.env.DATA_DIR || './data';
 const SCRAPER_URL   = process.env.SCRAPER_URL || 'http://epg:3000';
@@ -119,6 +120,7 @@ router.post('/channels', requireAuth, async (req, res) => {
     res.status(201).json(ch);
   } catch (e) {
     if (e && e.code === 'SQLITE_CONSTRAINT_FOREIGNKEY') {
+      logger.warn('auth','Stale session/auth warning',{ route: '/api/scraper/channels', user_id: req.user?.id });
       return res.status(401).json({
         error: 'Your session is no longer valid. Please log in again.',
         code: 'STALE_TOKEN',
@@ -419,6 +421,9 @@ router.get('/run', async (req, res) => {
   try { req.user = jwt.verify(token, process.env.JWT_SECRET); }
   catch { return res.status(401).send('Invalid token'); }
 
+  const runId = `run_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+  logger.info('scraper', 'Manual scraper run started', { user_id: req.user.id, run_id: runId });
+
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
@@ -428,16 +433,22 @@ router.get('/run', async (req, res) => {
     try { res.write(`data: ${JSON.stringify(data)}\n\n`); } catch {}
   };
   const runLines = [];
+  let persistedLineCount = 0;
   const pushRunLine = (line) => {
     const trimmed = (line || '').trim();
     if (!trimmed) return;
     runLines.push(trimmed);
+    if (persistedLineCount < 250) {
+      persistedLineCount += 1;
+      logger.info('scraper', 'Scraper run output line', { user_id: req.user.id, run_id: runId, line: trimmed, line_no: persistedLineCount });
+    }
     send({ type: 'log', msg: trimmed });
   };
 
   const scraperUrl = process.env.SCRAPER_URL || 'http://epg:3000';
   const configuredCount = getConfiguredChannelCountFromXML();
   if (configuredCount === 0) {
+    logger.warn('scraper', 'Manual scraper run blocked: no configured channels', { user_id: req.user.id });
     send({ type: 'error', msg: 'No scraper channels are configured. Add and enable at least one channel before running.' });
     return res.end();
   }
@@ -449,6 +460,7 @@ router.get('/run', async (req, res) => {
     const check = await fetch(`${scraperUrl}/guide.xml`, { method: 'HEAD', timeout: 5000 });
     send({ type: 'log', msg: 'Scraper container is online.' });
   } catch (e) {
+    logger.error('scraper', 'Manual scraper run failure', { user_id: req.user.id, error: e?.message || String(e) });
     send({ type: 'error', msg: `Cannot reach scraper at ${scraperUrl}. Is the epg container running? Error: ${e.message}` });
     return res.end();
   }
@@ -497,15 +509,20 @@ router.get('/run', async (req, res) => {
           zeroProgramLines.slice(0, 5).forEach(l => send({ type: 'warning', msg: `↳ ${l}` }));
         }
         const stats = await getGuideStats(scraperUrl);
+        if (!stats) logger.info('scraper', 'Manual scraper run success', { user_id: req.user.id, stats_available: false });
         if (stats) {
           send({ type: 'log', msg: `Generated guide.xml contains ${stats.channelCount} channel(s) and ${stats.programmeCount} programme(s).` });
+          logger.info('scraper', 'Scraper fetch guide/import success', { user_id: req.user.id, run_id: runId, channels: stats.channelCount, programmes: stats.programmeCount });
           if (stats.channelCount > 0 && stats.programmeCount === 0) {
             send({ type: 'warning', msg: 'Scraper completed, but 0 programme entries were returned.' });
+            logger.warn('scraper', 'Scraper warning: 0 programme entries loaded', { user_id: req.user.id, run_id: runId, channels: stats.channelCount, programmes: stats.programmeCount });
             send({ type: 'warning', msg: 'This usually means the selected scraper source does not support one or more mapped channels, or the channel mapping/xmltv_id is invalid for that source.' });
           }
         }
+        logger.info('scraper', 'Manual scraper run success', { user_id: req.user.id, run_id: runId, captured_lines: runLines.length });
         send({ type: 'done', msg: 'Scrape completed! Stationarr will now fetch the guide...' });
       } else {
+        logger.error('scraper', 'Manual scraper run failure', { user_id: req.user.id, run_id: runId, code, captured_lines: runLines.length });
         send({ type: 'error', msg: `Scraper exited with code ${code}` });
       }
       res.end();
