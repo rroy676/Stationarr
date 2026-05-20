@@ -286,8 +286,12 @@ export default function ScraperPage() {
           </div>
           <div style={{ marginTop: 8, fontSize: 12, color: 'var(--muted)', lineHeight: 1.7 }}>
             <p>Troubleshooting:</p>
+            <p>• <strong style={{ color: 'var(--text)' }}>v1.0.9 mapping update:</strong> channels added before v1.0.9 may use legacy mappings. Remove and re-add them so valid site-specific mappings are saved.</p>
+            <p>• Example valid mapping pair: <span className="mono">xmltv_id="ESPN.us@SD"</span> + <span className="mono">site_id="9200006937"</span>.</p>
             <p>• <strong style={{ color: 'var(--text)' }}>0 channels</strong> means no scraper channels are selected.</p>
-            <p>• <strong style={{ color: 'var(--text)' }}>0 programmes</strong> means the source/site returned no programme data, or the scraper channel definition may be invalid.</p>
+            <p>• <strong style={{ color: 'var(--text)' }}>guide.xml exists</strong> does not guarantee programme entries exist; it may still contain <span className="mono">0 programme</span> rows.</p>
+            <p>• <strong style={{ color: 'var(--text)' }}>Cached source but empty Guide</strong> usually means playlist channels are not yet matched to EPG IDs.</p>
+            <p>• <strong style={{ color: 'var(--text)' }}>Run now</strong> can start the sidecar immediately only when Stationarr has Docker socket access; otherwise wait for sidecar cron or run the sidecar manually.</p>
           </div>
         </div>
 
