@@ -10,6 +10,7 @@ const { parseM3U }  = require('./utils/m3u');
 const { parseXMLTVBuffer } = require('./utils/xmltv');
 const { saveEPGCache } = require('./utils/xmltv-merge');
 const { countProgrammeEntriesFromBuffer } = require('./utils/xmltv-programme-count');
+const { buildHttpStatusError, getPlaylistFetchErrorMessage } = require('./utils/http-errors');
 
 const DATA_DIR    = process.env.DATA_DIR || './data';
 const CHECK_EVERY = 15 * 60 * 1000; // 15 minutes
@@ -28,7 +29,7 @@ async function refreshPlaylist(pl) {
   console.log(`[scheduler] Refreshing playlist "${pl.name}" (id=${pl.id})`);
   try {
     const r = await fetch(url, { timeout: 30000, follow: 10, compress: true });
-    if (!r.ok) throw new Error('HTTP ' + r.status);
+    if (!r.ok) throw buildHttpStatusError(r.status);
     const text = await r.text();
     const { channels, counts } = parseM3U(text);
 
@@ -45,7 +46,10 @@ async function refreshPlaylist(pl) {
 
     console.log(`[scheduler] Playlist "${pl.name}" refreshed — ${counts.importedLive}/${counts.totalEntries} live channels imported (${counts.skippedVodLike} VOD-like entries skipped)`);
   } catch (e) {
-    console.error(`[scheduler] Failed to refresh playlist "${pl.name}":`, e.message);
+    console.error(`[scheduler] Failed to refresh playlist "${pl.name}":`, getPlaylistFetchErrorMessage(e, 'Playlist fetch failed:'));
+    if (e && e.message) {
+      console.error(`[scheduler] Technical fetch error for playlist "${pl.name}":`, e.message);
+    }
   }
 }
 
