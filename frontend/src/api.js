@@ -1,12 +1,14 @@
 const BASE = '/api';
+const DEFAULT_STALE_SESSION_MESSAGE = 'Your session is no longer valid. Please log in again. If the database was reset, you may need to recreate your user account.';
 
 function token() {
   return localStorage.getItem('token');
 }
 
 async function request(method, path, body, raw = false) {
+  const currentToken = token();
   const headers = { 'Content-Type': 'application/json' };
-  if (token()) headers['Authorization'] = `Bearer ${token()}`;
+  if (currentToken) headers['Authorization'] = `Bearer ${currentToken}`;
 
   const res = await fetch(`${BASE}${path}`, {
     method,
@@ -14,17 +16,25 @@ async function request(method, path, body, raw = false) {
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
 
+  const data = await res.json().catch(() => ({}));
   if (res.status === 401) {
-    const data = await res.json().catch(() => ({}));
-    localStorage.removeItem('token');
-    sessionStorage.setItem('auth_error', data.error || 'Your session is no longer valid. Please log in again.');
-    window.location.href = '/login';
-    throw new Error(data.error || 'Unauthorized');
+    const message = data.error || data.message || 'Unauthorized';
+    const isStaleToken = data.code === 'STALE_TOKEN';
+    const isAuthFormRequest = path === '/auth/login' || path === '/auth/register';
+
+    if (!isAuthFormRequest && (currentToken || isStaleToken)) {
+      localStorage.removeItem('token');
+      sessionStorage.setItem('auth_error', isStaleToken ? (data.error || DEFAULT_STALE_SESSION_MESSAGE) : message);
+      if (window.location.pathname !== '/login') {
+        window.location.assign('/login');
+      }
+    }
+
+    throw new Error(isStaleToken ? (data.error || DEFAULT_STALE_SESSION_MESSAGE) : message);
   }
 
   if (raw) return res;
 
-  const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
   return data;
 }

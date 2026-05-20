@@ -6,6 +6,7 @@
 - Improved playlist import and refresh HTTP 451 handling: Stationarr now keeps the technical `HTTP 451` status context in logs while showing a clearer user-facing/provider-facing message that the remote playlist source refused the request due to likely access restrictions/policy constraints.
 - Fixed stale JWT handling for scraper channel adds: auth now verifies the token user still exists before setting `req.user`, returns `401` with `STALE_TOKEN` for missing users, and scraper channel insert now catches SQLite FK constraint errors to return clean JSON instead of crashing the backend.
 - Frontend auth handling now preserves and shows backend session-expired messages on redirect to login, avoiding generic browser fetch/network errors when tokens are stale.
+- Improved stale-session frontend recovery for `401` auth failures: Stationarr now clears stale/invalid tokens, preserves backend `STALE_TOKEN` messages through redirect to `/login`, shows the message once, and avoids generic browser `NetworkError` text when backend JSON errors are available.
 
 - Docker startup now proactively creates `/app/data` and `/app/data/scraper`, repairs ownership for UID/GID `1000`, and then starts Node as the non-root `node` user to prevent EACCES on fresh named volumes.
 - Added startup warnings when `SCRAPER_CHANNELS_PATH` points outside `/app/data`, including a specific warning against using `/epg/public` in the Stationarr container.
