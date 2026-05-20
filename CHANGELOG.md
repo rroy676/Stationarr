@@ -1,9 +1,19 @@
 # Changelog
 
-## [Unreleased]
+## [1.0.12] — 2026-05-20
 
 ### Added
-- Phase 1 in-app **System → Logs** page with backend structured logging APIs, retention-limited log storage, and sanitized TXT/JSON debug exports (issue #48).
+- Added Phase 1 in-app **System → Logs** page with backend structured logging APIs, retention-limited SQLite log storage, level/category/search filters, and sanitized TXT/JSON debug exports.
+- Added support for copying visible logs to clipboard.
+- Added scraper, EPG, playlist, scheduler, startup, and auth/session support events to the in-app logs.
+- Added captured scraper run output lines and metadata/details in debug exports.
+
+### Security
+- Redacted sensitive values from logs and exports, including passwords, API keys, auth tokens, cookies, JWTs, and private source URL query strings.
+
+### References
+- Fixes #48
+- PR #57
 
 ## [1.0.11] — 2026-05-20
 
