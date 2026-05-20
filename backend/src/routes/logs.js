@@ -55,9 +55,15 @@ router.get('/export', (req, res) => {
   lines.push(`Export timestamp: ${payload.export_timestamp}`);
   lines.push(`Health: ${JSON.stringify(payload.health)}`);
   lines.push('--- Recent warnings/errors ---');
-  payload.recent_warnings_errors.forEach(l => lines.push(`[${l.ts}] [${l.level}] [${l.category}] ${l.message}`));
+  payload.recent_warnings_errors.forEach(l => {
+    lines.push(`[${l.ts}] [${l.level}] [${l.category}] ${l.message}`);
+    if (l.metadata) lines.push(`metadata: ${JSON.stringify(l.metadata)}`);
+  });
   lines.push('--- Recent app logs ---');
-  payload.recent_app_logs.forEach(l => lines.push(`[${l.ts}] [${l.level}] [${l.category}] ${l.message}`));
+  payload.recent_app_logs.forEach(l => {
+    lines.push(`[${l.ts}] [${l.level}] [${l.category}] ${l.message}`);
+    if (l.metadata) lines.push(`metadata: ${JSON.stringify(l.metadata)}`);
+  });
   res.send(lines.join('\n'));
 });
 

@@ -28,7 +28,11 @@ export default function Logs() {
   };
 
   const copyVisible = async () => {
-    const text = rows.map(r => `[${r.ts}] [${r.level}] [${r.category}] ${r.message}`).join('\n');
+    const text = rows.map(r => {
+      const base = `[${r.ts}] [${r.level}] [${r.category}] ${r.message}`;
+      const meta = r.metadata ? `\nmetadata: ${JSON.stringify(r.metadata)}` : '';
+      return base + meta;
+    }).join('\n');
     await navigator.clipboard.writeText(text);
     toast('Visible logs copied', 'success');
   };
@@ -48,8 +52,12 @@ export default function Logs() {
       <button className='btn btn-sm' onClick={copyVisible}>Copy visible logs</button>
     </div>
     <div className='card' style={{ maxHeight: '65vh', overflow: 'auto' }}>
-      <table style={{ width: '100%', fontSize: 12 }}><thead><tr><th>Timestamp</th><th>Level</th><th>Category</th><th>Message</th></tr></thead>
-      <tbody>{rows.map(r => <tr key={r.id}><td>{r.ts}</td><td>{r.level}</td><td>{r.category}</td><td>{r.message}</td></tr>)}</tbody></table>
+      {rows.length === 0 ? (
+        <div className='text-muted' style={{ padding: 12, fontSize: 13 }}>No logs yet. Trigger a playlist refresh, EPG fetch, or scraper run, then click Refresh.</div>
+      ) : (
+      <table style={{ width: '100%', fontSize: 12 }}><thead><tr><th>Timestamp</th><th>Level</th><th>Category</th><th>Message</th><th>Details</th></tr></thead>
+      <tbody>{rows.map(r => <tr key={r.id}><td>{r.ts}</td><td>{r.level}</td><td>{r.category}</td><td>{r.message}</td><td><pre style={{ margin:0, whiteSpace:'pre-wrap', fontSize:11 }}>{r.metadata ? JSON.stringify(r.metadata, null, 2) : '—'}</pre></td></tr>)}</tbody></table>
+      )}
     </div>
   </div>;
 }
