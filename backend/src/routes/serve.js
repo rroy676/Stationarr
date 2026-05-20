@@ -2,6 +2,7 @@ const router = require('express').Router();
 const db     = require('../db');
 const { exportM3U } = require('../utils/m3u');
 const { mergeXMLTV, proxyEPG } = require('../utils/xmltv-merge');
+const logger = require('../logger');
 
 // GET /api/serve/:slug/playlist.m3u
 router.get('/:slug/playlist.m3u', (req, res) => {
@@ -12,6 +13,7 @@ router.get('/:slug/playlist.m3u', (req, res) => {
     'SELECT * FROM channels WHERE playlist_id = ? AND enabled = 1 ORDER BY ord ASC, id ASC'
   ).all(pl.id);
 
+  logger.info('playlist', 'Generated playlist served/exported', { playlist_id: pl.id, slug: pl.slug, channel_count: channels.length });
   res.setHeader('Content-Type', 'audio/x-mpegurl; charset=utf-8');
   res.setHeader('Content-Disposition', `attachment; filename="${slugify(pl.name)}.m3u"`);
   res.send(exportM3U(channels));

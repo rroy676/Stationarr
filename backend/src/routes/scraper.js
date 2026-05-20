@@ -421,6 +421,8 @@ router.get('/run', async (req, res) => {
   try { req.user = jwt.verify(token, process.env.JWT_SECRET); }
   catch { return res.status(401).send('Invalid token'); }
 
+  logger.info('scraper', 'Manual scraper run started', { user_id: req.user.id });
+
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
@@ -440,6 +442,7 @@ router.get('/run', async (req, res) => {
   const scraperUrl = process.env.SCRAPER_URL || 'http://epg:3000';
   const configuredCount = getConfiguredChannelCountFromXML();
   if (configuredCount === 0) {
+    logger.warn('scraper', 'Manual scraper run blocked: no configured channels', { user_id: req.user.id });
     send({ type: 'error', msg: 'No scraper channels are configured. Add and enable at least one channel before running.' });
     return res.end();
   }
@@ -451,6 +454,7 @@ router.get('/run', async (req, res) => {
     const check = await fetch(`${scraperUrl}/guide.xml`, { method: 'HEAD', timeout: 5000 });
     send({ type: 'log', msg: 'Scraper container is online.' });
   } catch (e) {
+    logger.error('scraper', 'Manual scraper run failure', { user_id: req.user.id, error: e?.message || String(e) });
     send({ type: 'error', msg: `Cannot reach scraper at ${scraperUrl}. Is the epg container running? Error: ${e.message}` });
     return res.end();
   }
@@ -499,15 +503,20 @@ router.get('/run', async (req, res) => {
           zeroProgramLines.slice(0, 5).forEach(l => send({ type: 'warning', msg: `↳ ${l}` }));
         }
         const stats = await getGuideStats(scraperUrl);
+        if (!stats) logger.info('scraper', 'Manual scraper run success', { user_id: req.user.id, stats_available: false });
         if (stats) {
           send({ type: 'log', msg: `Generated guide.xml contains ${stats.channelCount} channel(s) and ${stats.programmeCount} programme(s).` });
+          logger.info('scraper', 'Scraper fetch guide/import success', { user_id: req.user.id, channels: stats.channelCount, programmes: stats.programmeCount });
           if (stats.channelCount > 0 && stats.programmeCount === 0) {
             send({ type: 'warning', msg: 'Scraper completed, but 0 programme entries were returned.' });
+            logger.warn('scraper', 'Scraper warning: 0 programme entries loaded', { user_id: req.user.id, channels: stats.channelCount, programmes: stats.programmeCount });
             send({ type: 'warning', msg: 'This usually means the selected scraper source does not support one or more mapped channels, or the channel mapping/xmltv_id is invalid for that source.' });
           }
         }
+        logger.info('scraper', 'Manual scraper run success', { user_id: req.user.id });
         send({ type: 'done', msg: 'Scrape completed! Stationarr will now fetch the guide...' });
       } else {
+        logger.error('scraper', 'Manual scraper run failure', { user_id: req.user.id, code });
         send({ type: 'error', msg: `Scraper exited with code ${code}` });
       }
       res.end();

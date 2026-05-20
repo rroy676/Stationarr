@@ -114,6 +114,7 @@ router.post('/:id/import', async (req, res) => {
   const pl = db.prepare('SELECT * FROM playlists WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
   if (!pl) return res.status(404).json({ error: 'Not found' });
 
+  logger.info('playlist','Playlist import started',{ playlist_id: pl.id, has_content: !!req.body.content, source_type: req.body.source_type || pl.source_type || 'url' });
   let m3uText = req.body.content;
 
   if (!m3uText) {
@@ -172,6 +173,7 @@ router.post('/:id/import', async (req, res) => {
 router.post('/:id/refresh', async (req, res) => {
   const pl = db.prepare('SELECT * FROM playlists WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
   if (!pl) return res.status(404).json({ error: 'Not found' });
+  logger.info('playlist','Playlist manual refresh started',{ playlist_id: pl.id, playlist_name: pl.name });
   try {
     await require('../scheduler').refreshPlaylist(pl);
     const updated = db.prepare('SELECT * FROM playlists WHERE id = ?').get(pl.id);
@@ -179,6 +181,7 @@ router.post('/:id/refresh', async (req, res) => {
     logger.info('playlist','Playlist scheduled refresh success',{ playlist_id: pl.id, channel_count: count });
     res.json({ ok: true, channel_count: count, last_refreshed: updated.last_refreshed });
   } catch (e) {
+    logger.error('playlist','Playlist manual refresh failure',{ playlist_id: pl.id, error: e?.message || String(e) });
     res.status(502).json({ error: e.message });
   }
 });
