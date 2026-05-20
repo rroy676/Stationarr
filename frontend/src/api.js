@@ -128,3 +128,14 @@ export const backup = {
   },
   restore: (body) => post('/backup/restore', body),
 };
+
+
+export const logs = {
+  list: (q = {}) => {
+    const params = new URLSearchParams();
+    Object.entries(q).forEach(([k,v]) => { if (v !== undefined && v !== null && v !== '') params.set(k, v); });
+    params.set('limit', q.limit || 200);
+    return get('/logs?' + params.toString());
+  },
+  exportFile: (format = 'txt') => request('GET', `/logs/export?format=${format}`, undefined, true),
+};

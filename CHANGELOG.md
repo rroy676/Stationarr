@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- Phase 1 in-app **System → Logs** page with backend structured logging APIs, retention-limited log storage, and sanitized TXT/JSON debug exports (issue #48).
+
 ## [1.0.11] — 2026-05-20
 
 ### Fixed

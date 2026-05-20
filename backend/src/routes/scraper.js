@@ -5,6 +5,7 @@ const fetch  = require('node-fetch');
 const fs     = require('fs');
 const path   = require('path');
 const { exec, spawn } = require('child_process');
+const logger = require('../logger');
 
 const DATA_DIR      = process.env.DATA_DIR || './data';
 const SCRAPER_URL   = process.env.SCRAPER_URL || 'http://epg:3000';
@@ -119,6 +120,7 @@ router.post('/channels', requireAuth, async (req, res) => {
     res.status(201).json(ch);
   } catch (e) {
     if (e && e.code === 'SQLITE_CONSTRAINT_FOREIGNKEY') {
+      logger.warn('auth','Stale session/auth warning',{ route: '/api/scraper/channels', user_id: req.user?.id });
       return res.status(401).json({
         error: 'Your session is no longer valid. Please log in again.',
         code: 'STALE_TOKEN',

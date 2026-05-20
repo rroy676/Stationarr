@@ -5,6 +5,7 @@ const { nanoid }  = require('nanoid');
 const { parseM3U } = require('../utils/m3u');
 const { buildHttpStatusError, getPlaylistFetchErrorMessage } = require('../utils/http-errors');
 const fetch   = require('node-fetch');
+const logger = require('../logger');
 
 router.use(requireAuth);
 
@@ -135,6 +136,8 @@ router.post('/:id/import', async (req, res) => {
         WHERE id=?
       `).run(url, req.body.source_type || 'url', req.body.source_server || null, req.body.source_username || null, req.body.source_password || null, pl.id);
     } catch (e) {
+      if (e && Number(e.status) === 451) logger.warn('playlist','HTTP 451 playlist fetch warning',{ playlist_id: pl.id });
+      logger.error('playlist','Playlist import failed',{ playlist_id: pl.id, error: e?.message || String(e) });
       return res.status(502).json({ error: getPlaylistFetchErrorMessage(e, 'Could not fetch URL:') });
     }
   }
@@ -153,6 +156,7 @@ router.post('/:id/import', async (req, res) => {
     db.prepare("UPDATE playlists SET updated_at=datetime('now'), last_refreshed=datetime('now') WHERE id=?").run(pl.id);
   })(channels);
 
+  logger.info('playlist','Playlist import success',{ playlist_id: pl.id, imported: channels.length, skipped_vod_like: counts.skippedVodLike });
   res.json({
     imported: channels.length,
     import_summary: {
@@ -172,6 +176,7 @@ router.post('/:id/refresh', async (req, res) => {
     await require('../scheduler').refreshPlaylist(pl);
     const updated = db.prepare('SELECT * FROM playlists WHERE id = ?').get(pl.id);
     const count   = db.prepare('SELECT COUNT(*) as c FROM channels WHERE playlist_id = ?').get(pl.id).c;
+    logger.info('playlist','Playlist scheduled refresh success',{ playlist_id: pl.id, channel_count: count });
     res.json({ ok: true, channel_count: count, last_refreshed: updated.last_refreshed });
   } catch (e) {
     res.status(502).json({ error: e.message });
