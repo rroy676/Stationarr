@@ -14,6 +14,25 @@ const EPG_SITES_REMOTE_BASE = process.env.EPG_SITES_REMOTE_BASE || 'https://raw.
 const SITE_DEF_CACHE_TTL_MS = Number(process.env.EPG_SITES_CACHE_TTL_MS || (6 * 60 * 60 * 1000));
 const siteDefCache = new Map();
 
+const XMLTV_VARIANT_SUFFIX_RE = /@(SD|HD|FHD|UHD)$/i;
+
+function normalizeScraperXmltvIdForOutput(xmltvId) {
+  const original = String(xmltvId || '').trim();
+  if (!original) {
+    return { normalized: original, changed: false, reason: 'empty' };
+  }
+
+  if (!XMLTV_VARIANT_SUFFIX_RE.test(original)) {
+    return { normalized: original, changed: false, reason: 'no-variant-suffix' };
+  }
+
+  return {
+    normalized: original.replace(XMLTV_VARIANT_SUFFIX_RE, ''),
+    changed: true,
+    reason: 'quality-variant-stripped',
+  };
+}
+
 function getConfiguredChannelCountFromXML() {
   if (!fs.existsSync(CHANNELS_PATH)) return 0;
   const xml = fs.readFileSync(CHANNELS_PATH, 'utf8');
@@ -206,7 +225,22 @@ function writeChannelsXML(userId) {
     'SELECT * FROM scraper_channels WHERE user_id = ? AND enabled = 1 ORDER BY site, name'
   ).all(userId);
 
-  const xml = buildChannelsXML(channels);
+  const outputChannels = channels.map((ch) => {
+    const normalized = normalizeScraperXmltvIdForOutput(ch.xmltv_id);
+    if (normalized.changed) {
+      console.info('[scraper] normalized xmltv_id for channels.xml output', {
+        site: ch.site,
+        site_id: ch.site_id,
+        original_xmltv_id: ch.xmltv_id,
+        resolved_xmltv_id: ch.xmltv_id,
+        final_xmltv_id: normalized.normalized,
+        normalization_reason: normalized.reason,
+      });
+    }
+    return { ...ch, xmltv_id: normalized.normalized };
+  });
+
+  const xml = buildChannelsXML(outputChannels);
   const dir  = path.dirname(CHANNELS_PATH);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(CHANNELS_PATH, xml, 'utf8');
@@ -236,10 +270,22 @@ function parseCSV(text) {
 }
 
 async function resolveScraperChannelDefinition({ site, xmltv_id, site_id, name, channel_id }) {
-  // Preserve site-specific definition when client already provides both fields
-  if (xmltv_id && site_id) return { ok: true, xmltv_id, site_id };
-
   const defs = await loadSiteChannelDefinitions(site);
+
+  // Preserve site-specific definition when client already provides both fields
+  if (xmltv_id && site_id) {
+    const normalized = normalizeScraperXmltvIdForOutput(xmltv_id);
+    console.info('[scraper] resolved channel mapping', {
+      site,
+      site_id,
+      original_xmltv_id: xmltv_id,
+      resolved_xmltv_id: xmltv_id,
+      final_xmltv_id: normalized.normalized,
+      normalization_reason: normalized.reason,
+      normalized: normalized.changed,
+    });
+    return { ok: true, xmltv_id: normalized.normalized, site_id };
+  }
   if (!defs.length) {
     return {
       ok: false,
@@ -248,14 +294,29 @@ async function resolveScraperChannelDefinition({ site, xmltv_id, site_id, name, 
   }
 
   const norm = (v) => String(v || '').trim().toLowerCase();
+  const logResolution = (matchType, originalXmltvId, resolvedXmltvId, resolvedSiteId) => {
+    const normalized = normalizeScraperXmltvIdForOutput(resolvedXmltvId);
+    console.info('[scraper] resolved channel mapping', {
+      site,
+      site_id: resolvedSiteId,
+      original_xmltv_id: originalXmltvId || '',
+      resolved_xmltv_id: resolvedXmltvId,
+      final_xmltv_id: normalized.normalized,
+      normalization_reason: normalized.reason,
+      normalized: normalized.changed,
+      match_type: matchType,
+    });
+    return { ok: true, xmltv_id: normalized.normalized, site_id: resolvedSiteId };
+  };
+
   const byId = defs.find(d => norm(d.xmltv_id) === norm(xmltv_id));
-  if (byId) return { ok: true, xmltv_id: byId.xmltv_id, site_id: byId.site_id };
+  if (byId) return logResolution('xmltv_id', xmltv_id, byId.xmltv_id, byId.site_id);
 
   const byChannelId = defs.find(d => norm(d.channel_id) === norm(channel_id));
-  if (byChannelId) return { ok: true, xmltv_id: byChannelId.xmltv_id, site_id: byChannelId.site_id };
+  if (byChannelId) return logResolution('channel_id', xmltv_id, byChannelId.xmltv_id, byChannelId.site_id);
 
   const byName = defs.find(d => norm(d.name) === norm(name));
-  if (byName) return { ok: true, xmltv_id: byName.xmltv_id, site_id: byName.site_id };
+  if (byName) return logResolution('name', xmltv_id, byName.xmltv_id, byName.site_id);
 
   return { ok: false, error: `No valid site_id mapping found for "${name}" on ${site}.` };
 }
@@ -431,16 +492,16 @@ router.get('/run', async (req, res) => {
       if (code === 0 || code === null) {
         const zeroProgramLines = runLines.filter(l => /\(0 programs\)/i.test(l));
         if (zeroProgramLines.length > 0) {
-          send({ type: 'warning', msg: 'Scraper ran, but no programmes were found for the selected channels/source.' });
-          send({ type: 'warning', msg: 'Try another scraper source/site for this channel.' });
+          send({ type: 'warning', msg: 'Scraper completed, but 0 programme entries were returned.' });
+          send({ type: 'warning', msg: 'This usually means the selected scraper source does not support one or more mapped channels, or the channel mapping/xmltv_id is invalid for that source.' });
           zeroProgramLines.slice(0, 5).forEach(l => send({ type: 'warning', msg: `↳ ${l}` }));
         }
         const stats = await getGuideStats(scraperUrl);
         if (stats) {
           send({ type: 'log', msg: `Generated guide.xml contains ${stats.channelCount} channel(s) and ${stats.programmeCount} programme(s).` });
           if (stats.channelCount > 0 && stats.programmeCount === 0) {
-            send({ type: 'warning', msg: 'Scraper ran, but no programmes were found for the selected channels/source.' });
-            send({ type: 'warning', msg: 'Try another scraper source/site for this channel.' });
+            send({ type: 'warning', msg: 'Scraper completed, but 0 programme entries were returned.' });
+            send({ type: 'warning', msg: 'This usually means the selected scraper source does not support one or more mapped channels, or the channel mapping/xmltv_id is invalid for that source.' });
           }
         }
         send({ type: 'done', msg: 'Scrape completed! Stationarr will now fetch the guide...' });
