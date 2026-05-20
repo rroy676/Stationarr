@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link }      from 'react-router-dom';
 import { Tv }        from 'lucide-react';
 import { useAuth }   from '../context.jsx';
@@ -11,6 +11,14 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
 
   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
+
+  useEffect(() => {
+    const authError = sessionStorage.getItem('auth_error');
+    if (authError) {
+      toast(authError, 'error');
+      sessionStorage.removeItem('auth_error');
+    }
+  }, [toast]);
 
   const submit = async (e) => {
     e.preventDefault();
