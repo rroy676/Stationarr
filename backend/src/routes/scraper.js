@@ -421,6 +421,7 @@ router.get('/run', async (req, res) => {
   try { req.user = jwt.verify(token, process.env.JWT_SECRET); }
   catch { return res.status(401).send('Invalid token'); }
 
+  const runId = `run_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
   logger.info('scraper', 'Manual scraper run started', { user_id: req.user.id, run_id: runId });
 
   res.setHeader('Content-Type', 'text/event-stream');
@@ -432,7 +433,6 @@ router.get('/run', async (req, res) => {
     try { res.write(`data: ${JSON.stringify(data)}\n\n`); } catch {}
   };
   const runLines = [];
-  const runId = `run_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
   let persistedLineCount = 0;
   const pushRunLine = (line) => {
     const trimmed = (line || '').trim();
