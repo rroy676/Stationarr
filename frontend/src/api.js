@@ -16,6 +16,28 @@ async function request(method, path, body, raw = false) {
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
 
+  if (raw) {
+    if (res.status === 401) {
+      const data = await res.clone().json().catch(() => ({}));
+      const message = data.error || data.message || 'Unauthorized';
+      const isStaleToken = data.code === 'STALE_TOKEN';
+      const isAuthFormRequest = path === '/auth/login' || path === '/auth/register';
+
+      if (!isAuthFormRequest && (currentToken || isStaleToken)) {
+        localStorage.removeItem('token');
+        sessionStorage.setItem('auth_error', isStaleToken ? (data.error || DEFAULT_STALE_SESSION_MESSAGE) : message);
+        if (window.location.pathname !== '/login') {
+          window.location.assign('/login');
+        }
+      }
+
+      throw new Error(isStaleToken ? (data.error || DEFAULT_STALE_SESSION_MESSAGE) : message);
+    }
+
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res;
+  }
+
   const data = await res.json().catch(() => ({}));
   if (res.status === 401) {
     const message = data.error || data.message || 'Unauthorized';
@@ -32,8 +54,6 @@ async function request(method, path, body, raw = false) {
 
     throw new Error(isStaleToken ? (data.error || DEFAULT_STALE_SESSION_MESSAGE) : message);
   }
-
-  if (raw) return res;
 
   if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
   return data;
