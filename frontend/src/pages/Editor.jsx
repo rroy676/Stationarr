@@ -66,7 +66,7 @@ export default function Editor() {
   useEffect(() => { if (!loading) loadChannels({ resetPage: true }); }, [search, activeGroup, enabledFilter]);
   useEffect(() => { if (!loading) loadChannels(); }, [page]);
 
-  const groups = useMemo(() => Object.fromEntries(channelMeta.groups.map(g => [g.grp, g.count])), [channelMeta]);
+  const groups = useMemo(() => Object.fromEntries(channelMeta.groups.map(g => [g.grp, { count: g.count, enabled_count: g.enabled_count }])), [channelMeta]);
   const editingChannel = useMemo(() => channels.find(c => c.id === editingId) ?? null, [channels, editingId]);
 
   const updateChannel = useCallback(async (channelId, updates) => {
@@ -76,18 +76,20 @@ export default function Editor() {
     try { await chApi.remove(channelId); await loadChannels(); if (editingId === channelId) setEditingId(null); toast('Channel deleted', 'success'); } catch (e) { toast(e.message, 'error'); }
   }, [editingId, loadChannels]);
   const reorder = useCallback(async (newChannels) => {
-    setChannels(newChannels);
-    try { await chApi.reorder({ playlist_id: id, order: newChannels.map(c => c.id) }); } catch (e) { toast(e.message, 'error'); }
-  }, [id]);
+    toast('Reorder is disabled while server-side pagination is enabled.', 'error');
+  }, [toast]);
   const bulkAction = useCallback(async (action, value) => {
     const ids = [...selectedIds]; if (!ids.length) return;
-    try { await chApi.bulk({ playlist_id: id, ids, action, value }); await loadChannels(); toast(`Updated ${ids.length} channels`, 'success'); }
+    try { await chApi.bulk({ playlist_id: id, ids, action, value, selection: 'ids' }); await loadChannels(); toast(`Updated ${ids.length} selected channels`, 'success'); }
     catch (e) { toast(e.message, 'error'); }
   }, [id, selectedIds, loadChannels]);
   const toggleGroup = useCallback(async (grp, enable) => {
-    const ids = channels.filter(c => c.grp === grp).map(c => c.id); if (!ids.length) return;
-    try { await chApi.bulk({ playlist_id: id, ids, action: enable ? 'enable' : 'disable' }); await loadChannels(); } catch (e) { toast(e.message, 'error'); }
-  }, [id, channels, loadChannels]);
+    try {
+      const res = await chApi.bulk({ playlist_id: id, selection: 'group', group: grp, action: enable ? 'enable' : 'disable' });
+      await loadChannels();
+      toast(`${enable ? 'Enabled' : 'Disabled'} ${res.affected} channels in "${grp}"`, 'success');
+    } catch (e) { toast(e.message, 'error'); }
+  }, [id, loadChannels]);
 
   const onImported = useCallback(async (count) => { toast(`Imported ${count} channels`, 'success'); setShowImport(false); await loadChannels({ resetPage: true }); }, [loadChannels]);
   const [showMatchPicker, setShowMatchPicker] = useState(false);
@@ -104,7 +106,7 @@ export default function Editor() {
   return <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
     <EditorHeader playlist={playlist} channelCount={channelMeta.summary.total} enabledCount={channelMeta.summary.enabled} onImport={() => setShowImport(true)} onEPG={() => setShowEPG(true)} onServe={() => setShowServe(true)} onBack={() => nav('/')} />
     <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-      <GroupSidebar groups={groups} total={channelMeta.summary.total} active={activeGroup} onSelect={setActiveGroup} onToggleGroup={toggleGroup} channels={channels} />
+      <GroupSidebar groups={groups} total={channelMeta.summary.total} active={activeGroup} onSelect={setActiveGroup} onToggleGroup={toggleGroup} />
       <ChannelTable channels={channels} allChannels={channels} selectedIds={selectedIds} editingId={editingId} search={search} onSearch={setSearch} onSelect={setSelectedIds} onEdit={setEditingId} onReorder={reorder} onBulkAction={bulkAction} onAutoMatch={autoMatch} hasEpg={allEpgCh.length > 0} serverMode loading={channelsLoading} enabledFilter={enabledFilter} onEnabledFilterChange={setEnabledFilter} page={page} pageSize={PAGE_SIZE} total={channelMeta.total} onPageChange={setPage} />
       {editingChannel && <ChannelPanel channel={editingChannel} epgChannels={allEpgCh} epgSources={epgSources} onUpdate={(updates) => updateChannel(editingChannel.id, updates)} onDelete={() => deleteChannel(editingChannel.id)} onClose={() => setEditingId(null)} />}
     </div>

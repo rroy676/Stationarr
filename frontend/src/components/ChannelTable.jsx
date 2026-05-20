@@ -159,6 +159,7 @@ export default function ChannelTable({
         {someSelected && (
           <>
             <span className="text-muted text-sm">{selectedIds.size} selected</span>
+            {serverMode && <span className="text-xs text-muted">Bulk actions apply to selected visible rows only.</span>}
             <button className="btn btn-sm" onClick={() => onBulkAction('enable')}><Eye size={12}/> Enable</button>
             <button className="btn btn-sm" onClick={() => onBulkAction('disable')}><EyeOff size={12}/> Disable</button>
             <div className="flex gap-1">
@@ -261,11 +262,11 @@ export default function ChannelTable({
                     overIdx === idx        ? 'drag-over': '',
                   ].join(' ')}
                   style={{ opacity: ch.enabled ? 1 : 0.45, cursor: 'pointer' }}
-                  draggable
-                  onDragStart={e => handleDragStart(e, idx)}
-                  onDragOver={e  => handleDragOver(e, idx)}
-                  onDrop={e      => handleDrop(e, idx)}
-                  onDragEnd={handleDragEnd}
+                  draggable={!serverMode}
+                  onDragStart={serverMode ? undefined : (e => handleDragStart(e, idx))}
+                  onDragOver={serverMode ? undefined : (e  => handleDragOver(e, idx))}
+                  onDrop={serverMode ? undefined : (e      => handleDrop(e, idx))}
+                  onDragEnd={serverMode ? undefined : handleDragEnd}
                   onClick={e => handleRowClick(e, ch, idx)}
                 >
                   <td onClick={e => handleCheckboxClick(e, ch, idx)}>
@@ -273,7 +274,7 @@ export default function ChannelTable({
                       onChange={() => {}} // controlled via handleCheckboxClick
                     />
                   </td>
-                  <td style={{ color: 'var(--faint)', cursor: 'grab', paddingLeft: 6 }}>
+                  <td style={{ color: 'var(--faint)', cursor: serverMode ? 'not-allowed' : 'grab', paddingLeft: 6, opacity: serverMode ? 0.45 : 1 }}>
                     <GripVertical size={13} />
                   </td>
                   <td>
