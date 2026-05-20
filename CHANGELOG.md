@@ -1,16 +1,16 @@
 # Changelog
 
-## [Unreleased]
+## [1.0.11] — 2026-05-20
 
 ### Fixed
-- Normalized scraper XMLTV IDs before writing scraper `channels.xml` by stripping display/quality suffixes like `@SD`, `@HD`, `@FHD`, and `@UHD` (for example writing `ESPN.us` instead of `ESPN.us@SD`), including for already-saved scraper channels when `channels.xml` is regenerated.
+- Normalized scraper XMLTV IDs before writing scraper `channels.xml` by stripping display/quality suffixes like `@SD`, `@HD`, `@FHD`, and `@UHD`, including for already-saved scraper channels when `channels.xml` is regenerated.
 - Added scraper mapping debug logs that include original XMLTV ID, resolved XMLTV ID, site, site_id, and final XMLTV ID written after normalization decisions.
 - Improved scraper run warnings for successful runs that still return 0 programme entries, with guidance that source support or channel mapping validity may be the cause.
 - Clarified that `tvtv.us` HTTP 403 responses are upstream source access failures and not the Stationarr XMLTV ID normalization bug.
 
 ### References
-- Issue #4
-- Follow-up XMLTV normalization issue from scraper `channels.xml` generation.
+- Fixes #38
+- Refs #4
 
 ## [1.0.10] — 2026-05-19
 
