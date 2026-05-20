@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Fixed
+- Fixed stale JWT handling for scraper channel adds: auth now verifies the token user still exists before setting `req.user`, returns `401` with `STALE_TOKEN` for missing users, and scraper channel insert now catches SQLite FK constraint errors to return clean JSON instead of crashing the backend.
+- Frontend auth handling now preserves and shows backend session-expired messages on redirect to login, avoiding generic browser fetch/network errors when tokens are stale.
+
 - Docker startup now proactively creates `/app/data` and `/app/data/scraper`, repairs ownership for UID/GID `1000`, and then starts Node as the non-root `node` user to prevent EACCES on fresh named volumes.
 - Added startup warnings when `SCRAPER_CHANNELS_PATH` points outside `/app/data`, including a specific warning against using `/epg/public` in the Stationarr container.
 - Fixed scraper first-run fallback when Docker CLI/socket access is unavailable: Stationarr now checks `SCRAPER_URL/guide.xml` before auto-fetching and no longer emits success/done states when the file is missing (404).

@@ -15,9 +15,11 @@ async function request(method, path, body, raw = false) {
   });
 
   if (res.status === 401) {
+    const data = await res.json().catch(() => ({}));
     localStorage.removeItem('token');
+    sessionStorage.setItem('auth_error', data.error || 'Your session is no longer valid. Please log in again.');
     window.location.href = '/login';
-    return;
+    throw new Error(data.error || 'Unauthorized');
   }
 
   if (raw) return res;

@@ -90,13 +90,29 @@ router.post('/channels', requireAuth, async (req, res) => {
   const exists = db.prepare('SELECT id FROM scraper_channels WHERE user_id = ? AND xmltv_id = ? AND site = ?').get(req.user.id, resolved.xmltv_id, site);
   if (exists) return res.status(409).json({ error: 'Channel already added for this site' });
 
-  const result = db.prepare(
-    'INSERT INTO scraper_channels (user_id, xmltv_id, site, site_id, name, lang) VALUES (?,?,?,?,?,?)'
-  ).run(req.user.id, resolved.xmltv_id, site, resolved.site_id, name, lang || 'en');
+  try {
+    const result = db.prepare(
+      'INSERT INTO scraper_channels (user_id, xmltv_id, site, site_id, name, lang) VALUES (?,?,?,?,?,?)'
+    ).run(req.user.id, resolved.xmltv_id, site, resolved.site_id, name, lang || 'en');
 
-  const ch = db.prepare('SELECT * FROM scraper_channels WHERE id = ?').get(result.lastInsertRowid);
-  writeChannelsXML(req.user.id);
-  res.status(201).json(ch);
+    const ch = db.prepare('SELECT * FROM scraper_channels WHERE id = ?').get(result.lastInsertRowid);
+    writeChannelsXML(req.user.id);
+    res.status(201).json(ch);
+  } catch (e) {
+    if (e && e.code === 'SQLITE_CONSTRAINT_FOREIGNKEY') {
+      return res.status(401).json({
+        error: 'Your session is no longer valid. Please log in again.',
+        code: 'STALE_TOKEN',
+      });
+    }
+    if (e && e.code && e.code.startsWith('SQLITE_CONSTRAINT')) {
+      return res.status(409).json({
+        error: 'Could not add scraper channel due to a database constraint.',
+        code: e.code,
+      });
+    }
+    throw e;
+  }
 });
 
 // ── Remove channel ────────────────────────────────────────────────
