@@ -14,6 +14,41 @@ const EPG_SITES_REMOTE_BASE = process.env.EPG_SITES_REMOTE_BASE || 'https://raw.
 const SITE_DEF_CACHE_TTL_MS = Number(process.env.EPG_SITES_CACHE_TTL_MS || (6 * 60 * 60 * 1000));
 const siteDefCache = new Map();
 
+const XMLTV_VARIANT_SUFFIX_RE = /@(SD|HD|FHD|UHD)$/i;
+
+function normalizeScraperXmltvIdForSite(xmltvId, site, defs) {
+  const original = String(xmltvId || '').trim();
+  if (!original) {
+    return { normalized: original, changed: false, reason: 'empty' };
+  }
+
+  if (!XMLTV_VARIANT_SUFFIX_RE.test(original)) {
+    return { normalized: original, changed: false, reason: 'no-variant-suffix' };
+  }
+
+  const withoutVariant = original.replace(XMLTV_VARIANT_SUFFIX_RE, '');
+  const norm = (v) => String(v || '').trim().toLowerCase();
+  const normalizedCandidate = norm(withoutVariant);
+  const definitions = Array.isArray(defs) ? defs : [];
+
+  const exactVariantExists = definitions.some((d) => norm(d.xmltv_id) === norm(original));
+  const baseVariantExists = definitions.some((d) => norm(d.xmltv_id) === normalizedCandidate);
+
+  if (baseVariantExists && exactVariantExists) {
+    return { normalized: original, changed: false, reason: 'both-forms-defined' };
+  }
+
+  if (baseVariantExists) {
+    return { normalized: withoutVariant, changed: true, reason: 'base-variant-defined' };
+  }
+
+  if (exactVariantExists) {
+    return { normalized: original, changed: false, reason: 'variant-required-by-site' };
+  }
+
+  return { normalized: original, changed: false, reason: 'no-safe-normalization-target' };
+}
+
 function getConfiguredChannelCountFromXML() {
   if (!fs.existsSync(CHANNELS_PATH)) return 0;
   const xml = fs.readFileSync(CHANNELS_PATH, 'utf8');
@@ -236,10 +271,22 @@ function parseCSV(text) {
 }
 
 async function resolveScraperChannelDefinition({ site, xmltv_id, site_id, name, channel_id }) {
-  // Preserve site-specific definition when client already provides both fields
-  if (xmltv_id && site_id) return { ok: true, xmltv_id, site_id };
-
   const defs = await loadSiteChannelDefinitions(site);
+
+  // Preserve site-specific definition when client already provides both fields
+  if (xmltv_id && site_id) {
+    const normalized = normalizeScraperXmltvIdForSite(xmltv_id, site, defs);
+    console.info('[scraper] resolved channel mapping', {
+      site,
+      site_id,
+      original_xmltv_id: xmltv_id,
+      resolved_xmltv_id: xmltv_id,
+      final_xmltv_id: normalized.normalized,
+      normalization_reason: normalized.reason,
+      normalized: normalized.changed,
+    });
+    return { ok: true, xmltv_id: normalized.normalized, site_id };
+  }
   if (!defs.length) {
     return {
       ok: false,
@@ -248,14 +295,29 @@ async function resolveScraperChannelDefinition({ site, xmltv_id, site_id, name, 
   }
 
   const norm = (v) => String(v || '').trim().toLowerCase();
+  const logResolution = (matchType, originalXmltvId, resolvedXmltvId, resolvedSiteId) => {
+    const normalized = normalizeScraperXmltvIdForSite(resolvedXmltvId, site, defs);
+    console.info('[scraper] resolved channel mapping', {
+      site,
+      site_id: resolvedSiteId,
+      original_xmltv_id: originalXmltvId || '',
+      resolved_xmltv_id: resolvedXmltvId,
+      final_xmltv_id: normalized.normalized,
+      normalization_reason: normalized.reason,
+      normalized: normalized.changed,
+      match_type: matchType,
+    });
+    return { ok: true, xmltv_id: normalized.normalized, site_id: resolvedSiteId };
+  };
+
   const byId = defs.find(d => norm(d.xmltv_id) === norm(xmltv_id));
-  if (byId) return { ok: true, xmltv_id: byId.xmltv_id, site_id: byId.site_id };
+  if (byId) return logResolution('xmltv_id', xmltv_id, byId.xmltv_id, byId.site_id);
 
   const byChannelId = defs.find(d => norm(d.channel_id) === norm(channel_id));
-  if (byChannelId) return { ok: true, xmltv_id: byChannelId.xmltv_id, site_id: byChannelId.site_id };
+  if (byChannelId) return logResolution('channel_id', xmltv_id, byChannelId.xmltv_id, byChannelId.site_id);
 
   const byName = defs.find(d => norm(d.name) === norm(name));
-  if (byName) return { ok: true, xmltv_id: byName.xmltv_id, site_id: byName.site_id };
+  if (byName) return logResolution('name', xmltv_id, byName.xmltv_id, byName.site_id);
 
   return { ok: false, error: `No valid site_id mapping found for "${name}" on ${site}.` };
 }
@@ -431,16 +493,16 @@ router.get('/run', async (req, res) => {
       if (code === 0 || code === null) {
         const zeroProgramLines = runLines.filter(l => /\(0 programs\)/i.test(l));
         if (zeroProgramLines.length > 0) {
-          send({ type: 'warning', msg: 'Scraper ran, but no programmes were found for the selected channels/source.' });
-          send({ type: 'warning', msg: 'Try another scraper source/site for this channel.' });
+          send({ type: 'warning', msg: 'Scraper completed, but 0 programme entries were returned.' });
+          send({ type: 'warning', msg: 'This usually means the selected scraper source does not support one or more mapped channels, or the channel mapping/xmltv_id is invalid for that source.' });
           zeroProgramLines.slice(0, 5).forEach(l => send({ type: 'warning', msg: `↳ ${l}` }));
         }
         const stats = await getGuideStats(scraperUrl);
         if (stats) {
           send({ type: 'log', msg: `Generated guide.xml contains ${stats.channelCount} channel(s) and ${stats.programmeCount} programme(s).` });
           if (stats.channelCount > 0 && stats.programmeCount === 0) {
-            send({ type: 'warning', msg: 'Scraper ran, but no programmes were found for the selected channels/source.' });
-            send({ type: 'warning', msg: 'Try another scraper source/site for this channel.' });
+            send({ type: 'warning', msg: 'Scraper completed, but 0 programme entries were returned.' });
+            send({ type: 'warning', msg: 'This usually means the selected scraper source does not support one or more mapped channels, or the channel mapping/xmltv_id is invalid for that source.' });
           }
         }
         send({ type: 'done', msg: 'Scrape completed! Stationarr will now fetch the guide...' });

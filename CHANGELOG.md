@@ -1,5 +1,17 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+- Normalized scraper XMLTV IDs during site-definition resolution so Stationarr writes the site-accepted `xmltv_id` in generated `channels.xml` (for example, `ESPN.us` for `tvguide.com` instead of an unsupported display variant like `ESPN.us@SD`) when a safe site-backed base ID exists.
+- Added scraper mapping debug logs that include original XMLTV ID, resolved XMLTV ID, site, site_id, and final XMLTV ID written after normalization decisions.
+- Improved scraper run warnings for successful runs that still return 0 programme entries, with guidance that source support or channel mapping validity may be the cause.
+- Clarified that `tvtv.us` HTTP 403 responses are upstream source access failures and not the Stationarr XMLTV ID normalization bug.
+
+### References
+- Issue #4
+- Follow-up XMLTV normalization issue from scraper `channels.xml` generation.
+
 ## [1.0.10] — 2026-05-19
 
 ### Added
