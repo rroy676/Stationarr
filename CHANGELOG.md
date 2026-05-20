@@ -1,28 +1,18 @@
 # Changelog
 
-## [Unreleased]
+## [1.0.10] — 2026-05-19
 
 ### Added
 - Added a new Settings → Updates section that keeps the existing update popup and shows current version, latest GitHub release, release date, release notes, release link, update status, and safe Docker Compose / Docker Run update instructions.
 - Update popup now links directly to Settings → Updates for in-app release details and guidance.
 
 ### Fixed
-- Improved playlist import and refresh HTTP 451 handling: Stationarr now keeps the technical `HTTP 451` status context in logs while showing a clearer user-facing/provider-facing message that the remote playlist source refused the request due to likely access restrictions/policy constraints.
-- Fixed stale JWT handling for scraper channel adds: auth now verifies the token user still exists before setting `req.user`, returns `401` with `STALE_TOKEN` for missing users, and scraper channel insert now catches SQLite FK constraint errors to return clean JSON instead of crashing the backend.
-- Frontend auth handling now preserves and shows backend session-expired messages on redirect to login, avoiding generic browser fetch/network errors when tokens are stale.
+- Improved playlist import and refresh HTTP 451 handling: Stationarr now keeps the technical `HTTP 451` status context in logs while showing a clearer user-facing message that the remote playlist source refused the request due to likely access restrictions or policy constraints.
+- Fixed stale JWT handling for scraper channel adds: auth now verifies the token user still exists before setting `req.user`, returns `401` with `STALE_TOKEN` for missing users, and scraper channel insert now catches SQLite foreign-key constraint errors instead of crashing the backend.
 - Improved stale-session frontend recovery for `401` auth failures: Stationarr now clears stale/invalid tokens, preserves backend `STALE_TOKEN` messages through redirect to `/login`, shows the message once, and avoids generic browser `NetworkError` text when backend JSON errors are available.
 
-- Docker startup now proactively creates `/app/data` and `/app/data/scraper`, repairs ownership for UID/GID `1000`, and then starts Node as the non-root `node` user to prevent EACCES on fresh named volumes.
-- Added startup warnings when `SCRAPER_CHANNELS_PATH` points outside `/app/data`, including a specific warning against using `/epg/public` in the Stationarr container.
-- Fixed scraper first-run fallback when Docker CLI/socket access is unavailable: Stationarr now checks `SCRAPER_URL/guide.xml` before auto-fetching and no longer emits success/done states when the file is missing (404).
-- Added clear scraper-run warnings for the “sidecar online but guide.xml not generated yet” case, including actionable next steps (wait for cron/manual sidecar run or enable Docker socket access for immediate Run now).
-- Fixed immediate Docker-socket scraper command to pass `--output=/epg/public/guide.xml`, ensuring the sidecar writes guide output to the shared public path that Stationarr fetches.
-- Docker entrypoint now relaxes permissions on a mounted `/var/run/docker.sock` before dropping privileges so the non-root `node` user can access Docker CLI for scraper "Run now".
-
 ### Documentation
-- Added EPG scraper troubleshooting guidance for v1.0.9 mapping changes, including re-add instructions for pre-v1.0.9 channels, first-run socket/cron behavior, `guide.xml` vs programme-count caveat, and site-specific mapping examples.
-- Updated `docker run` and `docker-compose` examples to use the correct shared volume mapping: Stationarr writes `/app/data/scraper/channels.xml` and the EPG sidecar mounts that same volume at `/epg/public`.
-- Documented first-run scraper behaviour for Docker Compose and Docker Run when Docker socket access is not mounted.
+- Added EPG scraper troubleshooting guidance for v1.0.9 mapping changes, including re-add instructions for pre-v1.0.9 channels, first-run socket/cron behaviour, `guide.xml` vs programme-count caveat, and site-specific mapping examples.
 
 ## [1.0.9] — 2026-05-19
 
