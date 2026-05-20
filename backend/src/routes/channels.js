@@ -8,14 +8,66 @@ function ownedPlaylist(playlistId, userId) {
   return db.prepare('SELECT id FROM playlists WHERE id = ? AND user_id = ?').get(playlistId, userId);
 }
 
+function parseBoolFilter(value) {
+  if (value === undefined) return null;
+  if (value === true || value === 'true' || value === '1' || value === 1) return 1;
+  if (value === false || value === 'false' || value === '0' || value === 0) return 0;
+  return null;
+}
+
 // GET /api/channels?playlist_id=X
 router.get('/', (req, res) => {
-  const { playlist_id } = req.query;
+  const { playlist_id, q = '', group = '__all__', enabled } = req.query;
   if (!playlist_id) return res.status(400).json({ error: 'playlist_id required' });
   if (!ownedPlaylist(playlist_id, req.user.id)) return res.status(404).json({ error: 'Not found' });
 
-  const rows = db.prepare('SELECT * FROM channels WHERE playlist_id = ? ORDER BY ord ASC, id ASC').all(playlist_id);
-  res.json(rows);
+  const page = Math.max(1, Number.parseInt(req.query.page || '1', 10) || 1);
+  const pageSize = Math.min(500, Math.max(25, Number.parseInt(req.query.page_size || '200', 10) || 200));
+  const offset = (page - 1) * pageSize;
+  const enabledFilter = parseBoolFilter(enabled);
+
+  const where = ['playlist_id = ?'];
+  const params = [playlist_id];
+  if (q) {
+    where.push('(name LIKE ? OR grp LIKE ? OR tvg_id LIKE ?)');
+    const pattern = `%${q}%`;
+    params.push(pattern, pattern, pattern);
+  }
+  if (group && group !== '__all__') {
+    where.push('grp = ?');
+    params.push(group);
+  }
+  if (enabledFilter !== null) {
+    where.push('enabled = ?');
+    params.push(enabledFilter);
+  }
+  const whereSql = where.join(' AND ');
+
+  const rows = db.prepare(`SELECT * FROM channels WHERE ${whereSql} ORDER BY ord ASC, id ASC LIMIT ? OFFSET ?`)
+    .all(...params, pageSize, offset);
+  const total = db.prepare(`SELECT COUNT(*) as count FROM channels WHERE ${whereSql}`).get(...params).count;
+
+  const groups = db.prepare(`
+    SELECT grp, COUNT(*) AS count, SUM(CASE WHEN enabled = 1 THEN 1 ELSE 0 END) AS enabled_count
+    FROM channels
+    WHERE playlist_id = ?
+    GROUP BY grp
+    ORDER BY grp COLLATE NOCASE ASC
+  `).all(playlist_id);
+
+  const totalCount = db.prepare('SELECT COUNT(*) as count FROM channels WHERE playlist_id = ?').get(playlist_id).count;
+  const enabledCount = db.prepare('SELECT COUNT(*) as count FROM channels WHERE playlist_id = ? AND enabled = 1').get(playlist_id).count;
+
+  res.json({
+    items: rows,
+    total,
+    page,
+    page_size: pageSize,
+    has_more: offset + rows.length < total,
+    filters: { q, group, enabled: enabledFilter },
+    summary: { total: totalCount, enabled: enabledCount },
+    groups,
+  });
 });
 
 // POST /api/channels — add single channel

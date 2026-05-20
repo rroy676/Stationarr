@@ -75,6 +75,10 @@ db.exec(`
   );
 
   CREATE INDEX IF NOT EXISTS idx_channels_playlist   ON channels(playlist_id);
+  CREATE INDEX IF NOT EXISTS idx_channels_playlist_ord ON channels(playlist_id, ord, id);
+  CREATE INDEX IF NOT EXISTS idx_channels_playlist_group_ord ON channels(playlist_id, grp, ord, id);
+  CREATE INDEX IF NOT EXISTS idx_channels_playlist_enabled_ord ON channels(playlist_id, enabled, ord, id);
+  CREATE INDEX IF NOT EXISTS idx_channels_playlist_tvgid ON channels(playlist_id, tvg_id);
   CREATE INDEX IF NOT EXISTS idx_epg_channels_source ON epg_channels(source_id);
   CREATE INDEX IF NOT EXISTS idx_playlists_user      ON playlists(user_id);
   CREATE INDEX IF NOT EXISTS idx_epg_sources_user    ON epg_sources(user_id);

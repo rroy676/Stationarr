@@ -62,7 +62,13 @@ export const playlists = {
 };
 
 export const channels = {
-  list:    (playlistId) => get(`/channels?playlist_id=${playlistId}`),
+  list:    (playlistId, params = {}) => {
+    const query = new URLSearchParams({ playlist_id: String(playlistId) });
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') query.set(key, String(value));
+    });
+    return get(`/channels?${query.toString()}`);
+  },
   create:  (body)       => post('/channels',        body),
   update:  (id, body)   => put(`/channels/${id}`,   body),
   remove:  (id)         => del(`/channels/${id}`),

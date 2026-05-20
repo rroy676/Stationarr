@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+
+### Improved
+- Phase 1 large-playlist performance work for issue #5: channel editor now loads channels with server-side pagination instead of pulling every channel into frontend state up front.
+- Added server-side channel query filters for playlist, search text, group, and enabled/disabled status to keep searches responsive on very large playlists.
+- Added new SQLite indexes for common large-playlist channel query paths (`playlist_id + ord`, `playlist_id + grp`, `playlist_id + enabled`, and `playlist_id + tvg_id`).
+- Editor table now includes paging controls and loading feedback while channel pages are fetched.
+
 ## [1.0.10] — 2026-05-19
 
 ### Added
