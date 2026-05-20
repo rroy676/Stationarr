@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+- Added a new Settings → Updates section that keeps the existing update popup and shows current version, latest GitHub release, release date, release notes, release link, update status, and safe Docker Compose / Docker Run update instructions.
+- Update popup now links directly to Settings → Updates for in-app release details and guidance.
+
 ### Fixed
 - Improved playlist import and refresh HTTP 451 handling: Stationarr now keeps the technical `HTTP 451` status context in logs while showing a clearer user-facing/provider-facing message that the remote playlist source refused the request due to likely access restrictions/policy constraints.
 - Fixed stale JWT handling for scraper channel adds: auth now verifies the token user still exists before setting `req.user`, returns `401` with `STALE_TOKEN` for missing users, and scraper channel insert now catches SQLite FK constraint errors to return clean JSON instead of crashing the backend.
