@@ -3,6 +3,7 @@ const db     = require('../db');
 const requireAuth = require('../middleware/auth');
 const { nanoid }  = require('nanoid');
 const { parseM3U } = require('../utils/m3u');
+const { buildHttpStatusError, getPlaylistFetchErrorMessage } = require('../utils/http-errors');
 const fetch   = require('node-fetch');
 
 router.use(requireAuth);
@@ -125,7 +126,7 @@ router.post('/:id/import', async (req, res) => {
 
     try {
       const r = await fetch(url, { timeout: 30000, follow: 10, compress: true });
-      if (!r.ok) throw new Error('HTTP ' + r.status);
+      if (!r.ok) throw buildHttpStatusError(r.status);
       m3uText = await r.text();
 
       // Save credentials to playlist for future auto-refresh
@@ -134,7 +135,7 @@ router.post('/:id/import', async (req, res) => {
         WHERE id=?
       `).run(url, req.body.source_type || 'url', req.body.source_server || null, req.body.source_username || null, req.body.source_password || null, pl.id);
     } catch (e) {
-      return res.status(502).json({ error: 'Could not fetch URL: ' + e.message });
+      return res.status(502).json({ error: getPlaylistFetchErrorMessage(e, 'Could not fetch URL:') });
     }
   }
 

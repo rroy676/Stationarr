@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Fixed
+- Improved playlist import and refresh HTTP 451 handling: Stationarr now keeps the technical `HTTP 451` status context in logs while showing a clearer user-facing/provider-facing message that the remote playlist source refused the request due to likely access restrictions/policy constraints.
 - Fixed stale JWT handling for scraper channel adds: auth now verifies the token user still exists before setting `req.user`, returns `401` with `STALE_TOKEN` for missing users, and scraper channel insert now catches SQLite FK constraint errors to return clean JSON instead of crashing the backend.
 - Frontend auth handling now preserves and shows backend session-expired messages on redirect to login, avoiding generic browser fetch/network errors when tokens are stale.
 
