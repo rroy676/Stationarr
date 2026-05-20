@@ -27,11 +27,10 @@ function UpdateBanner() {
       <span style={{ flex: 1 }}>
         🎉 <strong>Stationarr v{latest}</strong> is available!{' '}
         <a
-          href={`https://github.com/rroy676/Stationarr/releases/tag/v${latest}`}
-          target="_blank" rel="noreferrer"
+          href="/settings?section=updates"
           style={{ color: '#fff', textDecoration: 'underline' }}
         >
-          View release
+          Open Updates
         </a>
       </span>
       <button

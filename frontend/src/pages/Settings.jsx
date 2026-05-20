@@ -26,12 +26,33 @@ export default function Settings() {
   const [epgSources, setEpgSources] = useState([]);
 
   const [version, setVersion] = useState(null);
+  const [release, setRelease] = useState(null);
   useEffect(() => {
     fetch('/api/health')
       .then(r => r.json())
       .then(d => { if (d.version) setVersion(d.version); })
       .catch(() => {});
+
+    fetch('https://api.github.com/repos/rroy676/Stationarr/releases/latest')
+      .then(r => r.json())
+      .then(d => setRelease(d))
+      .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (location.search.includes('section=updates')) {
+      document.getElementById('updates-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [location.search]);
+
+  const latestVersion = release?.tag_name?.replace(/^v/, '') || null;
+  const published = release?.published_at ? new Date(release.published_at) : null;
+  const hasUpdate = !!(version && latestVersion && latestVersion !== version);
+  const updateStatus = !version || !latestVersion
+    ? 'Checking for updates…'
+    : hasUpdate
+      ? `Update available (v${latestVersion})`
+      : 'Up to date';
 
   const loadEpgSources = async () => {
     try { setEpgSources(await epgApi.list()); }
@@ -223,6 +244,62 @@ export default function Settings() {
                 </span>
               </label>
             </div>
+          </div>
+        </div>
+
+        {/* Updates */}
+        <div id="updates-section">
+          <h2 style={{ fontSize: 15, fontWeight: 600, marginBottom: 12 }}>Updates</h2>
+          <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <Row label="Current version" value={version ? `v${version}` : '—'} />
+            <Row label="Latest release" value={latestVersion ? `v${latestVersion}` : '—'} />
+            <Row label="Release date" value={published ? published.toLocaleString() : '—'} />
+            <Row label="Status" value={updateStatus} />
+
+            <div style={{ marginTop: 8 }}>
+              <p style={{ fontWeight: 600, marginBottom: 6, fontSize: 13 }}>Release notes</p>
+              <div
+                style={{
+                  background: 'var(--surface2)',
+                  border: '1px solid var(--border2)',
+                  borderRadius: 8,
+                  padding: 12,
+                  whiteSpace: 'pre-wrap',
+                  fontSize: 12,
+                  maxHeight: 240,
+                  overflow: 'auto',
+                }}
+              >
+                {release?.body || 'No release notes available.'}
+              </div>
+              <a
+                href={release?.html_url || 'https://github.com/rroy676/Stationarr/releases/latest'}
+                target="_blank"
+                rel="noreferrer"
+                style={{ color: 'var(--accent)', display: 'inline-block', marginTop: 8 }}
+              >
+                View latest GitHub release
+              </a>
+            </div>
+
+            <div style={{ marginTop: 10, borderTop: '1px solid var(--border2)', paddingTop: 12 }}>
+              <p style={{ fontWeight: 600, marginBottom: 6, fontSize: 13 }}>Docker Compose update</p>
+              <pre className="mono" style={{ fontSize: 12, background: 'var(--surface2)', padding: 10, borderRadius: 8, overflow: 'auto' }}>{`cd /path/to/stationarr
+docker compose pull
+docker compose up -d`}</pre>
+            </div>
+
+            <div style={{ marginTop: 10 }}>
+              <p style={{ fontWeight: 600, marginBottom: 6, fontSize: 13 }}>Docker Run update</p>
+              <pre className="mono" style={{ fontSize: 12, background: 'var(--surface2)', padding: 10, borderRadius: 8, overflow: 'auto' }}>{`docker pull rroy676/stationarr:latest
+docker stop stationarr
+docker rm stationarr
+# rerun the original docker run command with same volumes/env`}</pre>
+            </div>
+
+            <p className="text-xs text-muted" style={{ marginTop: 2 }}>
+              Full in-app self-update is not enabled by default because it would require Docker socket access and could restart the app.
+            </p>
           </div>
         </div>
 
