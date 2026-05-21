@@ -1,6 +1,6 @@
 {
   "name": "stationarr",
-  "version": "1.0.12",
+  "version": "1.1.0",
   "private": true,
   "description": "Self-hosted M3U playlist and EPG manager",
   "scripts": {

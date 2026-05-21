@@ -1,12 +1,35 @@
 # Changelog
 
-## [Unreleased]
+## v1.1.0 - Large Playlist Performance
+
+### Added
+
+- Added server-side paginated channel loading for large playlists.
+- Added page-size controls for the channel editor.
+- Added server-side channel search, group, and enabled/disabled filtering.
+- Added full-group enable/disable actions from the group sidebar.
+- Added SQLite-backed Guide programme indexing.
+- Added background Guide indexing after EPG fetch, upload, and refresh.
+- Added startup backfill for existing cached EPG sources.
+- Added lazy-loaded Guide rows with automatic load-more on scroll.
+- Added manual Load more fallback and batch-size controls for the Guide.
+- Added 12h/24h visible Guide windows.
+- Added Guide index status messaging for building and failed index states.
+- Added Stationarr branding assets and updated favicon references.
+- Updated README branding and documentation for the new performance features.
 
 ### Improved
-- Phase 1 large-playlist performance work (refs #5): channel editor now loads channels with server-side pagination instead of pulling every channel into frontend state up front.
-- Added server-side channel query filters for playlist, search text, group, and enabled/disabled status to keep searches responsive on very large playlists.
-- Added new SQLite indexes for common large-playlist channel query paths (`playlist_id + ord`, `playlist_id + grp`, `playlist_id + enabled`, and `playlist_id + tvg_id`).
-- Editor table now includes paging controls and loading feedback while channel pages are fetched.
+
+- Improved large playlist editor responsiveness by avoiding loading all channels into frontend state at once.
+- Improved Guide performance by querying indexed programme data instead of reparsing XMLTV files during Guide navigation.
+- Improved Guide layout with separate app and Guide control bars.
+- Improved documentation for large playlist workflows, Guide usage, and branding assets.
+
+### Fixed
+
+- Fixed scraper XMLTV mapping normalization issues where variant suffixes such as `@SD` could prevent programme data from loading.
+- Fixed Guide usability issues around large EPG datasets becoming sluggish after load.
+
 ## [1.0.12] — 2026-05-20
 
 ### Added
