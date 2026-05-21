@@ -9,6 +9,7 @@ const fetch   = require('node-fetch');
 const path    = require('path');
 const fs      = require('fs');
 const logger  = require('../logger');
+const { queueGuideIndex } = require('../utils/guide-indexer');
 
 const DATA_DIR = process.env.DATA_DIR || './data';
 
@@ -115,6 +116,7 @@ router.get('/:id/fetch-stream', async (req, res) => {
     send({ phase: 'saving', message: `Saving cache (${channels.length} channels)…` });
     const { cachePath, size } = saveEPGCache(DATA_DIR, src.id, buf);
     storeEPGChannels(src.id, channels, cachePath, size);
+    queueGuideIndex(src.id, cachePath);
     // Clear guide cache so next guide load is fresh
     try { require('./guide').clearCache(); } catch {}
 
@@ -163,6 +165,7 @@ router.post('/:id/fetch', async (req, res) => {
 
     const programmeCount = countProgrammeEntriesFromBuffer(fs.readFileSync(cachePath));
     storeEPGChannels(src.id, channels, cachePath, size, programmeCount);
+    queueGuideIndex(src.id, cachePath);
     try { require('./guide').clearCache(); } catch {}
     logger.info('epg', 'Manual EPG source fetch success', { source_id: src.id, channels: channels.length, programmes: programmeCount });
     res.json({ loaded: channels.length, cache_size: size, cached: true, programme_count: programmeCount });
@@ -186,6 +189,7 @@ router.post('/:id/upload', async (req, res) => {
     const { cachePath, size } = saveEPGCache(DATA_DIR, src.id, buf);
     const programmeCount = countProgrammeEntriesFromBuffer(buf);
     storeEPGChannels(src.id, channels, cachePath, size, programmeCount);
+    queueGuideIndex(src.id, cachePath);
     try { require('./guide').clearCache(); } catch {}
     logger.info('epg', 'Manual EPG source fetch success', { source_id: src.id, channels: channels.length, programmes: programmeCount });
     res.json({ loaded: channels.length, cache_size: size, cached: true, programme_count: programmeCount });

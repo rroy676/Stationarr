@@ -127,9 +127,14 @@ export const playlists_extra = {
 };
 
 export const guide = {
-  load:         (playlist_id, hours = 6, from_offset = 0) =>
-    get(`/guide?playlist_id=${playlist_id}&hours=${hours}&from_offset=${from_offset}`),
-  clearCache:   () => del('/guide/cache'),
+  load: (playlistId, params = {}) => {
+    const query = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') query.set(key, String(value));
+    });
+    return get(`/guide/${playlistId}?${query.toString()}`);
+  },
+  clearCache: () => del('/guide/cache'),
 };
 
 export const scraper = {
