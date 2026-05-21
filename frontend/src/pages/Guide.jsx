@@ -19,6 +19,7 @@ export default function Guide() {
   const { fmtTime, fmtDate, toTZ } = useTZ();
   const scrollRef  = useRef();
   const labelsRef  = useRef();
+  const loadMoreSentinelRef = useRef(null);
   const loadingMoreRef = useRef(false);
 
   const [playlists,  setPlaylists]  = useState([]);
@@ -43,7 +44,21 @@ export default function Guide() {
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 30000);
-    return () => clearInterval(t);
+  
+  useEffect(() => {
+    const root = scrollRef.current;
+    const sentinel = loadMoreSentinelRef.current;
+    if (!root || !sentinel) return;
+
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some(en => en.isIntersecting)) loadNextPage();
+    }, { root, rootMargin: '300px 0px', threshold: 0.01 });
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [loadNextPage, channels.length, paging.total, paging.page, paging.totalPages]);
+
+  return () => clearInterval(t);
   }, []);
 
   // Load playlists list for switcher
@@ -83,9 +98,24 @@ export default function Guide() {
   }, [loading]);
 
   const viewEnd = useMemo(() => new Date(viewStart.getTime() + windowHours * 3600000), [viewStart, windowHours]);
+  const visibleWindowLabel = useMemo(() => `${fmtTime(viewStart)} → ${fmtDate(viewEnd)} ${fmtTime(viewEnd)}`, [viewStart, viewEnd, fmtTime, fmtDate]);
 
   function timeToX(date, base = viewStart) {
-    return ((date - base) / 3600000) * HOUR_WIDTH;
+  
+  useEffect(() => {
+    const root = scrollRef.current;
+    const sentinel = loadMoreSentinelRef.current;
+    if (!root || !sentinel) return;
+
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some(en => en.isIntersecting)) loadNextPage();
+    }, { root, rootMargin: '300px 0px', threshold: 0.01 });
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [loadNextPage, channels.length, paging.total, paging.page, paging.totalPages]);
+
+  return ((date - base) / 3600000) * HOUR_WIDTH;
   }
 
   // Time slots every 30 min
@@ -140,16 +170,30 @@ export default function Guide() {
     finally { setSavingTs(false); }
   };
 
-  const syncScroll = (e) => {
-    if (labelsRef.current) labelsRef.current.scrollTop = e.currentTarget.scrollTop;
-    const el = e.currentTarget;
-    const nearBottom = (el.scrollTop + el.clientHeight) >= (el.scrollHeight - 300);
+  const loadNextPage = useCallback(() => {
     const hasMore = channels.length < paging.total;
     const nextPage = paging.page + 1;
-    if (nearBottom && hasMore && nextPage <= paging.totalPages && !loadingMoreRef.current && !loading) {
-      load(id, nextPage, true);
-    }
+    if (!hasMore || nextPage > paging.totalPages || loading || loadingMoreRef.current) return;
+    load(id, nextPage, true);
+  }, [channels.length, paging.total, paging.page, paging.totalPages, loading, id, load]);
+
+  const syncScroll = (e) => {
+    if (labelsRef.current) labelsRef.current.scrollTop = e.currentTarget.scrollTop;
   };
+
+
+  useEffect(() => {
+    const root = scrollRef.current;
+    const sentinel = loadMoreSentinelRef.current;
+    if (!root || !sentinel) return;
+
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some(en => en.isIntersecting)) loadNextPage();
+    }, { root, rootMargin: '300px 0px', threshold: 0.01 });
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [loadNextPage, channels.length, paging.total, paging.page, paging.totalPages]);
 
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--bg)' }}>
@@ -199,11 +243,11 @@ export default function Guide() {
           style={{ width: 80, fontSize: 12, padding: '4px 8px' }}>
           {[25,50,100,200].map(sz => <option key={sz} value={sz}>{sz}</option>)}
         </select>
-        <button className="btn btn-ghost btn-sm" disabled={loading || loadingMore || paging.page >= paging.totalPages} onClick={() => load(id, paging.page + 1, true)}>Load more</button>
+        <button className="btn btn-ghost btn-sm" disabled={loading || loadingMore || paging.page >= paging.totalPages} onClick={loadNextPage}>Load more</button>
         {loadingMore && <span className="text-muted text-sm">Loading more…</span>}
 
-        <span className="text-muted text-sm">Showing {windowHours}h window</span>
-        <select className="input" value={windowHours} onChange={e => { setWindowHours(Number(e.target.value)); }} style={{ width: 90, fontSize: 12, padding: "4px 8px" }}><option value={12}>12h</option><option value={24}>24h</option></select>
+        <span className="text-muted text-sm">Showing {windowHours}h window: {visibleWindowLabel}</span>
+        <select className="input" value={windowHours} onChange={e => { setWindowHours(Number(e.target.value)); if (scrollRef.current) scrollRef.current.scrollLeft = 0; }} style={{ width: 90, fontSize: 12, padding: "4px 8px" }}><option value={12}>12h</option><option value={24}>24h</option></select>
         <ThemeToggle />
         <button className="btn btn-ghost btn-sm" onClick={() => nav('/settings')}><Settings size={13}/></button>
           <HeaderButtons />
@@ -235,7 +279,7 @@ export default function Guide() {
           {/* Fixed channel labels */}
           <div style={{ width: LABEL_WIDTH, flexShrink: 0, borderRight: '1px solid var(--border2)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <div style={{ height: 40, borderBottom: '1px solid var(--border2)', flexShrink: 0, background: 'var(--surface)' }} />
-            <div ref={labelsRef} style={{ flex: 1, overflowY: 'hidden', height: contentHeight - 40 }}>
+            <div ref={labelsRef} style={{ flex: 1, overflowY: 'hidden' }}>
               {channels.map(ch => (
                 <div key={ch.id} style={{ height: ROW_HEIGHT, display: 'flex', alignItems: 'center', gap: 8, padding: '0 10px', borderBottom: '1px solid var(--border2)', flexShrink: 0 }}>
                   {ch.tvg_logo
@@ -271,7 +315,21 @@ export default function Guide() {
 
                 {timeSlots.map((t, i) => {
                   const isDayBoundary = t.getHours() === 0 && t.getMinutes() === 0;
-                  return (
+                
+  useEffect(() => {
+    const root = scrollRef.current;
+    const sentinel = loadMoreSentinelRef.current;
+    if (!root || !sentinel) return;
+
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some(en => en.isIntersecting)) loadNextPage();
+    }, { root, rootMargin: '300px 0px', threshold: 0.01 });
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [loadNextPage, channels.length, paging.total, paging.page, paging.totalPages]);
+
+  return (
                     <div key={i} style={{ position: 'absolute', left: timeToX(t) }}>
                       <div style={{ paddingLeft: 6, paddingTop: 6, fontSize: 11, color: isDayBoundary ? 'var(--accent)' : 'var(--muted)', fontWeight: isDayBoundary ? 700 : 400, whiteSpace: 'nowrap' }}>
                         {fmtTime(t)}
@@ -296,6 +354,7 @@ export default function Guide() {
                   search={search}
                   onSelect={prog => setSelected({ ...prog, ch })} />
               ))}
+              <div ref={loadMoreSentinelRef} style={{ position: 'absolute', left: 0, right: 0, top: contentHeight - 2, height: 2, pointerEvents: 'none' }} />
             </div>
           </div>
         </div>
@@ -365,6 +424,20 @@ function ChannelRow({ ch, timeToX, totalW, now, viewStart, viewEnd, fmtTime, onS
   const progs = ch.programmes || [];
   const ts    = ch.timeshift || 0;
 
+
+  useEffect(() => {
+    const root = scrollRef.current;
+    const sentinel = loadMoreSentinelRef.current;
+    if (!root || !sentinel) return;
+
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some(en => en.isIntersecting)) loadNextPage();
+    }, { root, rootMargin: '300px 0px', threshold: 0.01 });
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [loadNextPage, channels.length, paging.total, paging.page, paging.totalPages]);
+
   return (
     <div style={{ height: ROW_HEIGHT, position: 'relative', borderBottom: '1px solid var(--border2)' }}>
       {progs.map((p, i) => {
@@ -382,7 +455,21 @@ function ChannelRow({ ch, timeToX, totalW, now, viewStart, viewEnd, fmtTime, onS
         const pct      = isNow ? Math.min(100, ((now - start) / (stop - start)) * 100) : 0;
         const isMatch  = search && p.title?.toLowerCase().includes(search.toLowerCase());
 
-        return (
+      
+  useEffect(() => {
+    const root = scrollRef.current;
+    const sentinel = loadMoreSentinelRef.current;
+    if (!root || !sentinel) return;
+
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some(en => en.isIntersecting)) loadNextPage();
+    }, { root, rootMargin: '300px 0px', threshold: 0.01 });
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [loadNextPage, channels.length, paging.total, paging.page, paging.totalPages]);
+
+  return (
           <div key={i} onClick={() => onSelect({ ...p, start, stop })}
             style={{
               position: 'absolute', left: x + 1, width: w - 2, top: 4, bottom: 4,
