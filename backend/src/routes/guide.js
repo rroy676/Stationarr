@@ -1,7 +1,6 @@
 const router = require('express').Router();
 const db     = require('../db');
 const requireAuth = require('../middleware/auth');
-const { readProgrammes } = require('../utils/epg-reader');
 const logger = require('../logger');
 
 router.use(requireAuth);
@@ -67,24 +66,24 @@ router.get('/:playlist_id', async (req, res) => {
   ).all(...args, pageSize, offset);
 
   const sources = db.prepare(
-    'SELECT * FROM epg_sources WHERE user_id = ? AND cache_path IS NOT NULL ORDER BY priority ASC, id ASC'
+    'SELECT id, guide_index_status, guide_index_error, guide_index_updated FROM epg_sources WHERE user_id = ? AND cache_path IS NOT NULL ORDER BY priority ASC, id ASC'
   ).all(req.user.id);
+
+  const sourceIds = sources.map(s => s.id);
+  const sourceStatus = {
+    ready: sources.filter(s => s.guide_index_status === 'ready').length,
+    building: sources.filter(s => s.guide_index_status === 'building').length,
+    failed: sources.filter(s => s.guide_index_status === 'failed').length,
+    total: sources.length,
+    last_error: sources.find(s => s.guide_index_status === 'failed')?.guide_index_error || null,
+  };
 
   const epgIds = [...new Set([
     ...channels.map(c => c.epg_id).filter(Boolean),
     ...channels.map(c => c.backup_epg_id).filter(Boolean),
   ])];
 
-  const cacheKey = JSON.stringify({
-    playlistId,
-    page: safePage,
-    pageSize,
-    group,
-    q: q.toLowerCase(),
-    start: from.toISOString(),
-    end: to.toISOString(),
-    ids: epgIds,
-  });
+  const cacheKey = JSON.stringify({ playlistId, page: safePage, pageSize, group, q: q.toLowerCase(), start: from.toISOString(), end: to.toISOString(), ids: epgIds, sourceIds, src: sourceStatus });
   const cached = cache.get(cacheKey);
   if (cached && (Date.now() - cached.ts) < CACHE_TTL) return res.json(cached.data);
 
@@ -92,18 +91,29 @@ router.get('/:playlist_id', async (req, res) => {
   const allProgs = new Map();
   epgIds.forEach(id => allProgs.set(id, []));
 
-  for (const src of sources) {
-    if (!epgIds.length) break;
-    try {
-      const results = await readProgrammes(src.cache_path, epgIds, { from, to, max: 50 });
-      results.forEach((progs, epgId) => {
-        const existing = allProgs.get(epgId) || [];
-        const startKeys = new Set(existing.map(p => p.start?.getTime()));
-        const deduped = progs.filter(p => !startKeys.has(p.start?.getTime()));
-        allProgs.set(epgId, [...existing, ...deduped]);
+  if (epgIds.length && sourceIds.length) {
+    const placeholdersEpg = epgIds.map(() => '?').join(',');
+    const placeholdersSrc = sourceIds.map(() => '?').join(',');
+    const rows = db.prepare(
+      `SELECT epg_id, start, stop, title, subtitle, desc, category
+       FROM guide_programmes
+       WHERE source_id IN (${placeholdersSrc})
+         AND epg_id IN (${placeholdersEpg})
+         AND stop > ? AND start < ?
+       ORDER BY start ASC`
+    ).all(...sourceIds, ...epgIds, from.toISOString(), to.toISOString());
+
+    for (const r of rows) {
+      const list = allProgs.get(r.epg_id) || [];
+      list.push({
+        title: r.title,
+        subtitle: r.subtitle,
+        desc: r.desc,
+        category: r.category,
+        start: r.start ? new Date(r.start) : null,
+        stop: r.stop ? new Date(r.stop) : null,
       });
-    } catch (e) {
-      logger.warn('epg', 'Guide EPG source read failed', { sourceId: src.id, sourceName: src.name, error: e.message });
+      allProgs.set(r.epg_id, list);
     }
   }
 
@@ -121,6 +131,7 @@ router.get('/:playlist_id', async (req, res) => {
     total,
     total_pages: totalPages,
     count: channels.length,
+    guide_index: sourceStatus,
     channels: channels.map(ch => ({
       id: ch.id,
       name: ch.name,

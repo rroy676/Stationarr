@@ -195,6 +195,18 @@ export default function Guide() {
         <button className="btn btn-ghost btn-icon btn-sm" title="Refresh" onClick={() => load(id)}><RefreshCw size={13}/></button>
       </header>
 
+
+      {data?.guide_index?.building > 0 && (
+        <div style={{ padding: '8px 12px', fontSize: 12, color: 'var(--muted)', borderBottom: '1px solid var(--border2)' }}>
+          Guide index is building… ({data.guide_index.building}/{data.guide_index.total} sources)
+        </div>
+      )}
+      {data?.guide_index?.failed > 0 && (
+        <div style={{ padding: '8px 12px', fontSize: 12, color: '#ff9b9b', borderBottom: '1px solid var(--border2)' }}>
+          Guide index failed for one or more sources. Check logs. {data.guide_index.last_error ? `Last error: ${data.guide_index.last_error}` : ''}
+        </div>
+      )}
+
       {loading ? (
         <div style={{ padding: 32, color: 'var(--muted)' }}>Loading guide…</div>
       ) : channels.length === 0 ? (

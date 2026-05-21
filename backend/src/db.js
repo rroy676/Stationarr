@@ -93,6 +93,21 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_app_logs_ts ON app_logs(ts DESC);
 
+  CREATE TABLE IF NOT EXISTS guide_programmes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    source_id INTEGER NOT NULL REFERENCES epg_sources(id) ON DELETE CASCADE,
+    epg_id TEXT NOT NULL,
+    start TEXT NOT NULL,
+    stop TEXT NOT NULL,
+    title TEXT NOT NULL DEFAULT '',
+    subtitle TEXT NOT NULL DEFAULT '',
+    desc TEXT NOT NULL DEFAULT '',
+    category TEXT NOT NULL DEFAULT ''
+  );
+  CREATE INDEX IF NOT EXISTS idx_gp_source_epg ON guide_programmes(source_id, epg_id);
+  CREATE INDEX IF NOT EXISTS idx_gp_epg_time ON guide_programmes(epg_id, start, stop);
+  CREATE INDEX IF NOT EXISTS idx_gp_source_time ON guide_programmes(source_id, start, stop);
+
 `);
 
 // Runtime migrations — safely add columns to existing DBs
@@ -157,3 +172,7 @@ const chCols2 = db.prepare("PRAGMA table_info(channels)").all().map(c => c.name)
 if (!chCols2.includes('backup_epg_id')) {
   db.exec("ALTER TABLE channels ADD COLUMN backup_epg_id TEXT NOT NULL DEFAULT ''");
 }
+
+if (!epgCols3.includes('guide_index_status')) db.exec("ALTER TABLE epg_sources ADD COLUMN guide_index_status TEXT DEFAULT 'idle'");
+if (!epgCols3.includes('guide_index_updated')) db.exec("ALTER TABLE epg_sources ADD COLUMN guide_index_updated TEXT");
+if (!epgCols3.includes('guide_index_error')) db.exec("ALTER TABLE epg_sources ADD COLUMN guide_index_error TEXT");
