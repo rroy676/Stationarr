@@ -7,7 +7,7 @@ import { Search, GripVertical, Eye, EyeOff, Edit2, Trash2, RefreshCw, Image, Fil
 export default function ChannelTable({
   channels, allChannels, selectedIds, editingId, search,
   onSearch, onSelect, onEdit, onReorder, onBulkAction, onAutoMatch, hasEpg,
-  serverMode, loading, enabledFilter, onEnabledFilterChange, page, pageSize, total, onPageChange,
+  serverMode, loading, enabledFilter, onEnabledFilterChange, page, pageSize, total, onPageChange, onPageSizeChange,
 }) {
   const [dragIdx,  setDragIdx]  = useState(null);
   const [overIdx,  setOverIdx]  = useState(null);
@@ -322,7 +322,17 @@ export default function ChannelTable({
       {serverMode && (
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 14px', borderTop: '1px solid var(--border2)' }}>
           <span className="text-xs text-muted">Showing {Math.min((page - 1) * pageSize + 1, total)}-{Math.min(page * pageSize, total)} of {total}</span>
-          <div className="flex gap-1">
+          <div className="flex gap-1" style={{ alignItems: 'center' }}>
+            <label className="text-xs text-muted" htmlFor="page-size">Rows:</label>
+            <select
+              id="page-size"
+              className="input"
+              style={{ width: 80, fontSize: 12, padding: '4px 6px' }}
+              value={pageSize}
+              onChange={(e) => onPageSizeChange(Number(e.target.value))}
+            >
+              {[25, 50, 100, 200, 500].map(size => <option key={size} value={size}>{size}</option>)}
+            </select>
             <button className="btn btn-sm" disabled={page <= 1} onClick={() => onPageChange(page - 1)}>Prev</button>
             <button className="btn btn-sm" disabled={page * pageSize >= total} onClick={() => onPageChange(page + 1)}>Next</button>
           </div>

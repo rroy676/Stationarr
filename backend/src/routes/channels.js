@@ -22,7 +22,7 @@ router.get('/', (req, res) => {
   if (!ownedPlaylist(playlist_id, req.user.id)) return res.status(404).json({ error: 'Not found' });
 
   const page = Math.max(1, Number.parseInt(req.query.page || '1', 10) || 1);
-  const pageSize = Math.min(500, Math.max(25, Number.parseInt(req.query.page_size || '200', 10) || 200));
+  const pageSize = Math.min(500, Math.max(25, Number.parseInt(req.query.page_size || '50', 10) || 50));
   const offset = (page - 1) * pageSize;
   const enabledFilter = parseBoolFilter(enabled);
 
