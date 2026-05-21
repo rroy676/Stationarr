@@ -22,7 +22,7 @@ router.get('/', (req, res) => {
   if (!ownedPlaylist(playlist_id, req.user.id)) return res.status(404).json({ error: 'Not found' });
 
   const page = Math.max(1, Number.parseInt(req.query.page || '1', 10) || 1);
-  const pageSize = Math.min(500, Math.max(25, Number.parseInt(req.query.page_size || '200', 10) || 200));
+  const pageSize = Math.min(500, Math.max(25, Number.parseInt(req.query.page_size || '50', 10) || 50));
   const offset = (page - 1) * pageSize;
   const enabledFilter = parseBoolFilter(enabled);
 
@@ -123,27 +123,55 @@ router.post('/reorder', (req, res) => {
 
 // POST /api/channels/bulk — bulk update
 router.post('/bulk', (req, res) => {
-  const { playlist_id, ids, action, value } = req.body;
-  if (!playlist_id || !Array.isArray(ids) || !action) return res.status(400).json({ error: 'playlist_id, ids[], action required' });
+  const { playlist_id, ids, action, value, selection = 'ids', group = null, q = '', enabled } = req.body;
+  if (!playlist_id || !action) return res.status(400).json({ error: 'playlist_id and action required' });
   if (!ownedPlaylist(playlist_id, req.user.id)) return res.status(404).json({ error: 'Not found' });
 
-  const placeholders = ids.map(() => '?').join(',');
+  const enabledFilter = parseBoolFilter(enabled);
+  const where = ['playlist_id = ?'];
+  const whereParams = [playlist_id];
+  if (selection === 'group') {
+    if (!group) return res.status(400).json({ error: 'group required for group selection' });
+    where.push('grp = ?');
+    whereParams.push(group);
+  } else if (selection === 'filtered') {
+    if (q) {
+      where.push('(name LIKE ? OR grp LIKE ? OR tvg_id LIKE ?)');
+      const pattern = `%${q}%`;
+      whereParams.push(pattern, pattern, pattern);
+    }
+    if (group && group !== '__all__') {
+      where.push('grp = ?');
+      whereParams.push(group);
+    }
+    if (enabledFilter !== null) {
+      where.push('enabled = ?');
+      whereParams.push(enabledFilter);
+    }
+  } else {
+    if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ error: 'ids[] required for ids selection' });
+    const placeholders = ids.map(() => '?').join(',');
+    where.push(`id IN (${placeholders})`);
+    whereParams.push(...ids);
+  }
+  const whereSql = where.join(' AND ');
+  const affected = db.prepare(`SELECT COUNT(*) as count FROM channels WHERE ${whereSql}`).get(...whereParams).count;
 
   if (action === 'enable') {
-    db.prepare(`UPDATE channels SET enabled=1 WHERE id IN (${placeholders}) AND playlist_id=?`).run(...ids, playlist_id);
+    db.prepare(`UPDATE channels SET enabled=1 WHERE ${whereSql}`).run(...whereParams);
   } else if (action === 'disable') {
-    db.prepare(`UPDATE channels SET enabled=0 WHERE id IN (${placeholders}) AND playlist_id=?`).run(...ids, playlist_id);
+    db.prepare(`UPDATE channels SET enabled=0 WHERE ${whereSql}`).run(...whereParams);
   } else if (action === 'delete') {
-    db.prepare(`DELETE FROM channels WHERE id IN (${placeholders}) AND playlist_id=?`).run(...ids, playlist_id);
+    db.prepare(`DELETE FROM channels WHERE ${whereSql}`).run(...whereParams);
   } else if (action === 'set_group' && value) {
-    db.prepare(`UPDATE channels SET grp=? WHERE id IN (${placeholders}) AND playlist_id=?`).run(value, ...ids, playlist_id);
+    db.prepare(`UPDATE channels SET grp=? WHERE ${whereSql}`).run(value, ...whereParams);
   } else if (action === 'set_epg_id' && value !== undefined) {
-    db.prepare(`UPDATE channels SET epg_id=? WHERE id IN (${placeholders}) AND playlist_id=?`).run(value, ...ids, playlist_id);
+    db.prepare(`UPDATE channels SET epg_id=? WHERE ${whereSql}`).run(value, ...whereParams);
   } else {
     return res.status(400).json({ error: 'Unknown action' });
   }
 
-  res.json({ ok: true, affected: ids.length });
+  res.json({ ok: true, affected });
 });
 
 module.exports = router;

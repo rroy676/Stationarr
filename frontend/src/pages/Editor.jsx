@@ -10,7 +10,7 @@ import ImportModal from '../components/ImportModal.jsx';
 import EPGPanel from '../components/EPGPanel.jsx';
 import ServeModal from '../components/ServeModal.jsx';
 
-const PAGE_SIZE = 200;
+const DEFAULT_PAGE_SIZE = 50;
 
 export default function Editor() {
   const { id } = useParams();
@@ -33,6 +33,7 @@ export default function Editor() {
   const [showServe, setShowServe] = useState(false);
   const [enabledFilter, setEnabledFilter] = useState('all');
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 
   const loadChannels = useCallback(async ({ resetPage = false } = {}) => {
     const targetPage = resetPage ? 1 : page;
@@ -40,7 +41,7 @@ export default function Editor() {
     try {
       const res = await chApi.list(id, {
         page: targetPage,
-        page_size: PAGE_SIZE,
+        page_size: pageSize,
         q: search,
         group: activeGroup,
         enabled: enabledFilter === 'all' ? undefined : enabledFilter === 'enabled' ? 1 : 0,
@@ -51,7 +52,7 @@ export default function Editor() {
       setSelectedIds(new Set());
     } catch (e) { toast(e.message, 'error'); }
     finally { setChannelsLoading(false); }
-  }, [id, page, search, activeGroup, enabledFilter]);
+  }, [id, page, pageSize, search, activeGroup, enabledFilter]);
 
   useEffect(() => {
     Promise.all([plApi.get(id), epgApi.list(), plApi.list()]).then(async ([pl, sources, playlists]) => {
@@ -65,8 +66,16 @@ export default function Editor() {
 
   useEffect(() => { if (!loading) loadChannels({ resetPage: true }); }, [search, activeGroup, enabledFilter]);
   useEffect(() => { if (!loading) loadChannels(); }, [page]);
+  useEffect(() => {
+    if (loading) return;
+    setSelectedIds(new Set());
+    setPage(1);
+  }, [pageSize, loading]);
+  useEffect(() => {
+    if (!loading && page === 1) loadChannels({ resetPage: true });
+  }, [pageSize, page, loading, loadChannels]);
 
-  const groups = useMemo(() => Object.fromEntries(channelMeta.groups.map(g => [g.grp, g.count])), [channelMeta]);
+  const groups = useMemo(() => Object.fromEntries(channelMeta.groups.map(g => [g.grp, { count: g.count, enabled_count: g.enabled_count }])), [channelMeta]);
   const editingChannel = useMemo(() => channels.find(c => c.id === editingId) ?? null, [channels, editingId]);
 
   const updateChannel = useCallback(async (channelId, updates) => {
@@ -76,18 +85,20 @@ export default function Editor() {
     try { await chApi.remove(channelId); await loadChannels(); if (editingId === channelId) setEditingId(null); toast('Channel deleted', 'success'); } catch (e) { toast(e.message, 'error'); }
   }, [editingId, loadChannels]);
   const reorder = useCallback(async (newChannels) => {
-    setChannels(newChannels);
-    try { await chApi.reorder({ playlist_id: id, order: newChannels.map(c => c.id) }); } catch (e) { toast(e.message, 'error'); }
-  }, [id]);
+    toast('Reorder is disabled while server-side pagination is enabled.', 'error');
+  }, [toast]);
   const bulkAction = useCallback(async (action, value) => {
     const ids = [...selectedIds]; if (!ids.length) return;
-    try { await chApi.bulk({ playlist_id: id, ids, action, value }); await loadChannels(); toast(`Updated ${ids.length} channels`, 'success'); }
+    try { await chApi.bulk({ playlist_id: id, ids, action, value, selection: 'ids' }); await loadChannels(); toast(`Updated ${ids.length} selected channels`, 'success'); }
     catch (e) { toast(e.message, 'error'); }
   }, [id, selectedIds, loadChannels]);
   const toggleGroup = useCallback(async (grp, enable) => {
-    const ids = channels.filter(c => c.grp === grp).map(c => c.id); if (!ids.length) return;
-    try { await chApi.bulk({ playlist_id: id, ids, action: enable ? 'enable' : 'disable' }); await loadChannels(); } catch (e) { toast(e.message, 'error'); }
-  }, [id, channels, loadChannels]);
+    try {
+      const res = await chApi.bulk({ playlist_id: id, selection: 'group', group: grp, action: enable ? 'enable' : 'disable' });
+      await loadChannels();
+      toast(`${enable ? 'Enabled' : 'Disabled'} ${res.affected} channels in "${grp}"`, 'success');
+    } catch (e) { toast(e.message, 'error'); }
+  }, [id, loadChannels]);
 
   const onImported = useCallback(async (count) => { toast(`Imported ${count} channels`, 'success'); setShowImport(false); await loadChannels({ resetPage: true }); }, [loadChannels]);
   const [showMatchPicker, setShowMatchPicker] = useState(false);
@@ -104,8 +115,8 @@ export default function Editor() {
   return <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
     <EditorHeader playlist={playlist} channelCount={channelMeta.summary.total} enabledCount={channelMeta.summary.enabled} onImport={() => setShowImport(true)} onEPG={() => setShowEPG(true)} onServe={() => setShowServe(true)} onBack={() => nav('/')} />
     <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-      <GroupSidebar groups={groups} total={channelMeta.summary.total} active={activeGroup} onSelect={setActiveGroup} onToggleGroup={toggleGroup} channels={channels} />
-      <ChannelTable channels={channels} allChannels={channels} selectedIds={selectedIds} editingId={editingId} search={search} onSearch={setSearch} onSelect={setSelectedIds} onEdit={setEditingId} onReorder={reorder} onBulkAction={bulkAction} onAutoMatch={autoMatch} hasEpg={allEpgCh.length > 0} serverMode loading={channelsLoading} enabledFilter={enabledFilter} onEnabledFilterChange={setEnabledFilter} page={page} pageSize={PAGE_SIZE} total={channelMeta.total} onPageChange={setPage} />
+      <GroupSidebar groups={groups} total={channelMeta.summary.total} active={activeGroup} onSelect={setActiveGroup} onToggleGroup={toggleGroup} />
+      <ChannelTable channels={channels} allChannels={channels} selectedIds={selectedIds} editingId={editingId} search={search} onSearch={setSearch} onSelect={setSelectedIds} onEdit={setEditingId} onReorder={reorder} onBulkAction={bulkAction} onAutoMatch={autoMatch} hasEpg={allEpgCh.length > 0} serverMode loading={channelsLoading} enabledFilter={enabledFilter} onEnabledFilterChange={setEnabledFilter} page={page} pageSize={pageSize} total={channelMeta.total} onPageChange={setPage} onPageSizeChange={setPageSize} />
       {editingChannel && <ChannelPanel channel={editingChannel} epgChannels={allEpgCh} epgSources={epgSources} onUpdate={(updates) => updateChannel(editingChannel.id, updates)} onDelete={() => deleteChannel(editingChannel.id)} onClose={() => setEditingId(null)} />}
     </div>
     {showImport && <ImportModal playlistId={id} playlistName={playlist?.name} allPlaylists={allPlaylists} onClose={() => setShowImport(false)} onDone={onImported} />}

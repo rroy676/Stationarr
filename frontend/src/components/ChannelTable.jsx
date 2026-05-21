@@ -7,7 +7,7 @@ import { Search, GripVertical, Eye, EyeOff, Edit2, Trash2, RefreshCw, Image, Fil
 export default function ChannelTable({
   channels, allChannels, selectedIds, editingId, search,
   onSearch, onSelect, onEdit, onReorder, onBulkAction, onAutoMatch, hasEpg,
-  serverMode, loading, enabledFilter, onEnabledFilterChange, page, pageSize, total, onPageChange,
+  serverMode, loading, enabledFilter, onEnabledFilterChange, page, pageSize, total, onPageChange, onPageSizeChange,
 }) {
   const [dragIdx,  setDragIdx]  = useState(null);
   const [overIdx,  setOverIdx]  = useState(null);
@@ -159,6 +159,7 @@ export default function ChannelTable({
         {someSelected && (
           <>
             <span className="text-muted text-sm">{selectedIds.size} selected</span>
+            {serverMode && <span className="text-xs text-muted">Bulk actions apply to selected visible rows only.</span>}
             <button className="btn btn-sm" onClick={() => onBulkAction('enable')}><Eye size={12}/> Enable</button>
             <button className="btn btn-sm" onClick={() => onBulkAction('disable')}><EyeOff size={12}/> Disable</button>
             <div className="flex gap-1">
@@ -261,11 +262,11 @@ export default function ChannelTable({
                     overIdx === idx        ? 'drag-over': '',
                   ].join(' ')}
                   style={{ opacity: ch.enabled ? 1 : 0.45, cursor: 'pointer' }}
-                  draggable
-                  onDragStart={e => handleDragStart(e, idx)}
-                  onDragOver={e  => handleDragOver(e, idx)}
-                  onDrop={e      => handleDrop(e, idx)}
-                  onDragEnd={handleDragEnd}
+                  draggable={!serverMode}
+                  onDragStart={serverMode ? undefined : (e => handleDragStart(e, idx))}
+                  onDragOver={serverMode ? undefined : (e  => handleDragOver(e, idx))}
+                  onDrop={serverMode ? undefined : (e      => handleDrop(e, idx))}
+                  onDragEnd={serverMode ? undefined : handleDragEnd}
                   onClick={e => handleRowClick(e, ch, idx)}
                 >
                   <td onClick={e => handleCheckboxClick(e, ch, idx)}>
@@ -273,7 +274,7 @@ export default function ChannelTable({
                       onChange={() => {}} // controlled via handleCheckboxClick
                     />
                   </td>
-                  <td style={{ color: 'var(--faint)', cursor: 'grab', paddingLeft: 6 }}>
+                  <td style={{ color: 'var(--faint)', cursor: serverMode ? 'not-allowed' : 'grab', paddingLeft: 6, opacity: serverMode ? 0.45 : 1 }}>
                     <GripVertical size={13} />
                   </td>
                   <td>
@@ -321,7 +322,17 @@ export default function ChannelTable({
       {serverMode && (
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 14px', borderTop: '1px solid var(--border2)' }}>
           <span className="text-xs text-muted">Showing {Math.min((page - 1) * pageSize + 1, total)}-{Math.min(page * pageSize, total)} of {total}</span>
-          <div className="flex gap-1">
+          <div className="flex gap-1" style={{ alignItems: 'center' }}>
+            <label className="text-xs text-muted" htmlFor="page-size">Rows:</label>
+            <select
+              id="page-size"
+              className="input"
+              style={{ width: 80, fontSize: 12, padding: '4px 6px' }}
+              value={pageSize}
+              onChange={(e) => onPageSizeChange(Number(e.target.value))}
+            >
+              {[25, 50, 100, 200, 500].map(size => <option key={size} value={size}>{size}</option>)}
+            </select>
             <button className="btn btn-sm" disabled={page <= 1} onClick={() => onPageChange(page - 1)}>Prev</button>
             <button className="btn btn-sm" disabled={page * pageSize >= total} onClick={() => onPageChange(page + 1)}>Next</button>
           </div>
