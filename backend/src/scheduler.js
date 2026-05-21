@@ -11,6 +11,7 @@ const { parseXMLTVBuffer } = require('./utils/xmltv');
 const { saveEPGCache } = require('./utils/xmltv-merge');
 const { countProgrammeEntriesFromBuffer } = require('./utils/xmltv-programme-count');
 const { buildHttpStatusError, getPlaylistFetchErrorMessage } = require('./utils/http-errors');
+const logger = require('./logger');
 
 const DATA_DIR    = process.env.DATA_DIR || './data';
 const CHECK_EVERY = 15 * 60 * 1000; // 15 minutes
@@ -27,6 +28,7 @@ async function refreshPlaylist(pl) {
   if (!url) return;
 
   console.log(`[scheduler] Refreshing playlist "${pl.name}" (id=${pl.id})`);
+  logger.info('scheduler','Playlist scheduled refresh started',{ playlist_id: pl.id, playlist_name: pl.name });
   try {
     const r = await fetch(url, { timeout: 30000, follow: 10, compress: true });
     if (!r.ok) throw buildHttpStatusError(r.status);
@@ -45,8 +47,11 @@ async function refreshPlaylist(pl) {
     })();
 
     console.log(`[scheduler] Playlist "${pl.name}" refreshed — ${counts.importedLive}/${counts.totalEntries} live channels imported (${counts.skippedVodLike} VOD-like entries skipped)`);
+    logger.info('scheduler','Playlist scheduled refresh success',{ playlist_id: pl.id, imported_live: counts.importedLive, total_entries: counts.totalEntries });
   } catch (e) {
     console.error(`[scheduler] Failed to refresh playlist "${pl.name}":`, getPlaylistFetchErrorMessage(e, 'Playlist fetch failed:'));
+    if (e && Number(e.status) === 451) logger.warn('playlist','HTTP 451 playlist fetch warning',{ playlist_id: pl.id, playlist_name: pl.name });
+    logger.error('scheduler','Playlist scheduled refresh failure',{ playlist_id: pl.id, error: e?.message || String(e) });
     if (e && e.message) {
       console.error(`[scheduler] Technical fetch error for playlist "${pl.name}":`, e.message);
     }
@@ -57,6 +62,7 @@ async function refreshEPGSource(src) {
   if (!src.url) return;
 
   console.log(`[scheduler] Refreshing EPG source "${src.name}" (id=${src.id})`);
+  logger.info('scheduler','EPG source scheduled refresh started',{ source_id: src.id, source_name: src.name });
   try {
     const r = await fetch(src.url, { timeout: 60000, follow: 10, compress: true });
     if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -78,8 +84,10 @@ async function refreshEPGSource(src) {
     })();
 
     console.log(`[scheduler] EPG source "${src.name}" refreshed — ${channels.length} channels, ${programmeCount} programmes, ${(size/1024/1024).toFixed(1)} MB`);
+    logger.info('epg','EPG source fetch success',{ source_id: src.id, channels: channels.length, programmes: programmeCount });
   } catch (e) {
     console.error(`[scheduler] Failed to refresh EPG source "${src.name}":`, e.message);
+    logger.error('epg','EPG source fetch failure',{ source_id: src.id, error: e?.message || String(e) });
   }
 }
 

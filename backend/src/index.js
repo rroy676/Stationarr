@@ -4,6 +4,7 @@ const cors      = require('cors');
 const path      = require('path');
 const rateLimit = require('express-rate-limit');
 const { version } = require(path.join(__dirname, '../package.json'));
+const logger = require('./logger');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -26,6 +27,7 @@ app.use('/api/admin',     require('./routes/admin'));
 app.use('/api/guide',     require('./routes/guide'));
 app.use('/api/backup',    require('./routes/backup'));
 app.use('/api/scraper',   require('./routes/scraper'));
+app.use('/api/logs',      require('./routes/logs'));
 
 // Xtream-compatible API — mounted at root
 app.use('/', require('./routes/xtream'));
@@ -42,6 +44,7 @@ if (fs.existsSync(DIST)) {
 
 app.listen(PORT, () => {
   console.log(`Stationarr running on http://localhost:${PORT}`);
+  logger.info('system', 'Stationarr startup', { port: PORT, version });
   // Start background auto-refresh scheduler
   require('./scheduler').start();
 });

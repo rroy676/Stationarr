@@ -82,6 +82,17 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_epg_channels_source ON epg_channels(source_id);
   CREATE INDEX IF NOT EXISTS idx_playlists_user      ON playlists(user_id);
   CREATE INDEX IF NOT EXISTS idx_epg_sources_user    ON epg_sources(user_id);
+
+  CREATE TABLE IF NOT EXISTS app_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts TEXT NOT NULL DEFAULT (datetime('now')),
+    level TEXT NOT NULL,
+    category TEXT NOT NULL,
+    message TEXT NOT NULL,
+    metadata TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_app_logs_ts ON app_logs(ts DESC);
+
 `);
 
 // Runtime migrations — safely add columns to existing DBs
