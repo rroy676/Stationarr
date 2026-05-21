@@ -1,7 +1,9 @@
-<h1 align="center">Stationarr</h1>
+<p align="center">
+  <img src="frontend/branding/svg/stationarr-vertical.svg" alt="Stationarr" width="260">
+</p>
 
 <p align="center">
-  <strong>Self-hosted IPTV playlist and EPG manager</strong>
+  IPTV playlist editor, EPG matcher, and self-hosted companion for the *arr ecosystem.
 </p>
 
 <p align="center">
@@ -21,6 +23,25 @@ Stationarr is a playlist and EPG management tool only. It does **not** provide, 
 See [DISCLAIMER.md](DISCLAIMER.md) before using or contributing to this project.
 
 ---
+
+## Branding assets
+
+Stationarr branding assets are available in:
+
+```text
+frontend/branding/
+```
+
+The main downloadable app logo is:
+
+```text
+frontend/branding/logo.png
+```
+
+The branding package also includes additional PNG sizes, SVG versions, horizontal and vertical logo variants, brand tokens, and brand sheet assets.
+
+---
+
 
 ## Screenshots
 
