@@ -121,6 +121,7 @@ export default function Guide() {
 
   // Filtered channels
   const channels = useMemo(() => channelsData, [channelsData]);
+  const contentHeight = 40 + (channels.length * ROW_HEIGHT);
 
   const groups = useMemo(() => data?.groups || [], [data]);
 
@@ -142,10 +143,11 @@ export default function Guide() {
   const syncScroll = (e) => {
     if (labelsRef.current) labelsRef.current.scrollTop = e.currentTarget.scrollTop;
     const el = e.currentTarget;
-    const nearBottom = (el.scrollHeight - el.scrollTop - el.clientHeight) < 240;
+    const nearBottom = (el.scrollTop + el.clientHeight) >= (el.scrollHeight - 300);
     const hasMore = channels.length < paging.total;
-    if (nearBottom && hasMore && !loadingMoreRef.current && !loading) {
-      load(id, paging.page + 1, true);
+    const nextPage = paging.page + 1;
+    if (nearBottom && hasMore && nextPage <= paging.totalPages && !loadingMoreRef.current && !loading) {
+      load(id, nextPage, true);
     }
   };
 
@@ -200,6 +202,7 @@ export default function Guide() {
         <button className="btn btn-ghost btn-sm" disabled={loading || loadingMore || paging.page >= paging.totalPages} onClick={() => load(id, paging.page + 1, true)}>Load more</button>
         {loadingMore && <span className="text-muted text-sm">Loading more…</span>}
 
+        <span className="text-muted text-sm">Showing {windowHours}h window</span>
         <select className="input" value={windowHours} onChange={e => { setWindowHours(Number(e.target.value)); }} style={{ width: 90, fontSize: 12, padding: "4px 8px" }}><option value={12}>12h</option><option value={24}>24h</option></select>
         <ThemeToggle />
         <button className="btn btn-ghost btn-sm" onClick={() => nav('/settings')}><Settings size={13}/></button>
@@ -232,7 +235,7 @@ export default function Guide() {
           {/* Fixed channel labels */}
           <div style={{ width: LABEL_WIDTH, flexShrink: 0, borderRight: '1px solid var(--border2)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <div style={{ height: 40, borderBottom: '1px solid var(--border2)', flexShrink: 0, background: 'var(--surface)' }} />
-            <div ref={labelsRef} style={{ flex: 1, overflowY: 'hidden' }}>
+            <div ref={labelsRef} style={{ flex: 1, overflowY: 'hidden', height: contentHeight - 40 }}>
               {channels.map(ch => (
                 <div key={ch.id} style={{ height: ROW_HEIGHT, display: 'flex', alignItems: 'center', gap: 8, padding: '0 10px', borderBottom: '1px solid var(--border2)', flexShrink: 0 }}>
                   {ch.tvg_logo
@@ -254,7 +257,7 @@ export default function Guide() {
 
           {/* Scrollable grid */}
           <div ref={scrollRef} style={{ flex: 1, overflowX: 'auto', overflowY: 'auto', position: 'relative' }} onScroll={syncScroll}>
-            <div style={{ width: totalW, minHeight: '100%', position: 'relative' }}>
+            <div style={{ width: totalW, height: contentHeight, position: 'relative' }}>
               {/* Time axis */}
               <div style={{ height: 40, position: 'sticky', top: 0, background: 'var(--surface)', borderBottom: '1px solid var(--border2)', zIndex: 10 }}>
                 {/* Date headers at day boundaries */}
