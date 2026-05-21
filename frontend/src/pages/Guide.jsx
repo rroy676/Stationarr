@@ -174,8 +174,8 @@ export default function Guide() {
 
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--bg)' }}>
-      {/* Header */}
-      <header style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border2)', padding: '0 12px', height: 52, display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, flexWrap: 'wrap' }}>
+      {/* Top app bar */}
+      <header style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border2)', padding: '0 12px', height: 52, display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
         <button className="btn btn-ghost btn-icon btn-sm" onClick={() => nav(`/edit/${id}`)}><ArrowLeft size={15}/></button>
         <Tv size={15} color="var(--accent)" />
 
@@ -188,6 +188,14 @@ export default function Guide() {
         <span className="text-muted text-sm" style={{ flexShrink: 0 }}>TV Guide</span>
         <div style={{ flex: 1 }} />
 
+        <div style={{ flex: 1 }} />
+        <ThemeToggle />
+        <button className="btn btn-ghost btn-sm" onClick={() => nav('/settings')}><Settings size={13}/></button>
+          <HeaderButtons />
+      </header>
+
+      {/* Guide controls bar */}
+      <div style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border2)', padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, flexWrap: 'wrap' }}>
         {/* Search */}
         <div className="flex gap-1" style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 8px', width: 200 }}>
           <Search size={12} color="var(--faint)" />
@@ -225,11 +233,8 @@ export default function Guide() {
 
         <span className="text-muted text-sm">Showing {windowHours}h window: {visibleWindowLabel}</span>
         <select className="input" value={windowHours} onChange={e => { setWindowHours(Number(e.target.value)); if (scrollRef.current) scrollRef.current.scrollLeft = 0; }} style={{ width: 90, fontSize: 12, padding: "4px 8px" }}><option value={12}>12h</option><option value={24}>24h</option></select>
-        <ThemeToggle />
-        <button className="btn btn-ghost btn-sm" onClick={() => nav('/settings')}><Settings size={13}/></button>
-          <HeaderButtons />
         <button className="btn btn-ghost btn-icon btn-sm" title="Refresh" onClick={() => load(id, 1, false)}><RefreshCw size={13}/></button>
-      </header>
+      </div>
 
 
       {data?.guide_index?.building > 0 && (
