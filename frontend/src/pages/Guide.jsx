@@ -10,7 +10,8 @@ import { useTZ } from '../timezone.jsx';
 const HOUR_WIDTH  = 260;
 const ROW_HEIGHT  = 54;
 const LABEL_WIDTH = 190;
-const HOURS       = 6;
+const DEFAULT_WINDOW_HOURS = 24;
+const GUIDE_VIEW_HOURS = 6;
 
 export default function Guide() {
   const { id }    = useParams();
@@ -23,11 +24,13 @@ export default function Guide() {
   const [playlists,  setPlaylists]  = useState([]);
   const [playlist,   setPlaylist]   = useState(null);
   const [data,       setData]       = useState(null);
+  const [paging,     setPaging]     = useState({ page: 1, pageSize: 50, total: 0, totalPages: 1 });
+  const [groupFilter,setGroupFilter]= useState('__all__');
+  const [search,     setSearch]     = useState('');
+  const [windowHours,setWindowHours]= useState(DEFAULT_WINDOW_HOURS);
   const [loading,    setLoading]    = useState(true);
   const [selected,   setSelected]   = useState(null);
   const [now,        setNow]        = useState(new Date());
-  const [search,     setSearch]     = useState('');
-  const [groupFilter,setGroupFilter]= useState('__all__');
   const [tsEdit,     setTsEdit]     = useState(null);   // { channelId, current }
   const [savingTs,   setSavingTs]   = useState(false);
 
@@ -46,60 +49,23 @@ export default function Guide() {
     plApi.list().then(setPlaylists).catch(() => {});
   }, []);
 
-  // Frontend cache: playlist_id -> guide data
-  const guideCache = useRef({});
-  const fullData   = useRef(null); // always holds complete channel list
-
-  const load = useCallback(async (playlistId, forceRefresh = false) => {
-    // Return cached data instantly while refreshing in background
-    if (!forceRefresh && guideCache.current[playlistId]) {
-      setData(guideCache.current[playlistId]);
-      setLoading(false);
-      // Still refresh in background silently
-      guideApi.load(playlistId, HOURS + 1)
-        .then(guideData => {
-          guideCache.current[playlistId] = guideData;
-          setData(guideData);
-        })
-        .catch(() => {});
-      return;
-    }
-
+  const load = useCallback(async (playlistId) => {
     setLoading(true);
     try {
-      // Load playlist info and first batch of channels in parallel
+      const start = viewStart.toISOString();
+      const end = new Date(viewStart.getTime() + windowHours * 3600000).toISOString();
       const [pl, guideData] = await Promise.all([
         plApi.get(playlistId),
-        guideApi.load(playlistId, HOURS + 1),
+        guideApi.load(playlistId, { page: paging.page, page_size: paging.pageSize, group: groupFilter, q: search, start, end }),
       ]);
       setPlaylist(pl);
+      setData(guideData);
+      setPaging(p => ({ ...p, total: guideData.total || 0, totalPages: guideData.total_pages || 1, page: guideData.page || p.page }));
+    } catch (e) { toast(e.message, 'error'); }
+    finally { setLoading(false); }
+  }, [paging.page, paging.pageSize, groupFilter, search, viewStart, windowHours, toast]);
 
-      // Show first 30 channels immediately
-      const BATCH = 30;
-      if (guideData.channels.length > BATCH) {
-        setData({ ...guideData, channels: guideData.channels.slice(0, BATCH) });
-        setLoading(false);
-
-        // Load rest in batches of 50
-        let loaded = BATCH;
-        const total = guideData.channels.length;
-        while (loaded < total) {
-          await new Promise(r => setTimeout(r, 50)); // yield to browser
-          const next = Math.min(loaded + 50, total);
-          setData({ ...guideData, channels: guideData.channels.slice(0, next) });
-          loaded = next;
-        }
-      } else {
-        setData(guideData);
-        setLoading(false);
-      }
-
-      guideCache.current[playlistId] = guideData;
-      fullData.current = guideData;
-    } catch (e) { toast(e.message, 'error'); setLoading(false); }
-  }, []);
-
-  useEffect(() => { load(id); }, [id]);
+  useEffect(() => { load(id); }, [id, load]);
 
   // Scroll to now after load
   useEffect(() => {
@@ -111,7 +77,7 @@ export default function Guide() {
     }
   }, [loading]);
 
-  const viewEnd = useMemo(() => new Date(viewStart.getTime() + HOURS * 3600000), [viewStart]);
+  const viewEnd = useMemo(() => new Date(viewStart.getTime() + GUIDE_VIEW_HOURS * 3600000), [viewStart]);
 
   function timeToX(date, base = viewStart) {
     return ((date - base) / 3600000) * HOUR_WIDTH;
@@ -136,7 +102,7 @@ export default function Guide() {
   }, [viewStart, viewEnd]);
 
   const nowX   = timeToX(now);
-  const totalW = HOURS * HOUR_WIDTH;
+  const totalW = GUIDE_VIEW_HOURS * HOUR_WIDTH;
 
   const shiftView   = (h) => setViewStart(v => new Date(v.getTime() + h * 3600000));
   const jumpToDay   = (offset) => {
@@ -149,26 +115,9 @@ export default function Guide() {
   };
 
   // Filtered channels
-  const channels = useMemo(() => {
-    if (!data) return [];
-    let chs = data.channels;
-    if (groupFilter !== '__all__') chs = chs.filter(c => c.grp === groupFilter);
-    if (search) {
-      const q = search.toLowerCase();
-      chs = chs.filter(c =>
-        c.name.toLowerCase().includes(q) ||
-        c.programmes?.some(p => p.title?.toLowerCase().includes(q))
-      );
-    }
-    return chs;
-  }, [data, groupFilter, search]);
+  const channels = useMemo(() => data?.channels || [], [data]);
 
-  const groups = useMemo(() => {
-    // Use fullData so all groups show even during progressive loading
-    const src = fullData.current || data;
-    if (!src) return [];
-    return [...new Set(src.channels.map(c => c.grp))].filter(Boolean).sort();
-  }, [data]);
+  const groups = useMemo(() => [...new Set((data?.channels || []).map(c => c.grp))].filter(Boolean).sort(), [data]);
 
   // Save timeshift from guide
   const saveTimeshift = async (channelId, ts) => {
@@ -208,13 +157,13 @@ export default function Guide() {
         {/* Search */}
         <div className="flex gap-1" style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 8px', width: 200 }}>
           <Search size={12} color="var(--faint)" />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search channel or show…"
+          <input value={search} onChange={e => { setSearch(e.target.value); setPaging(p => ({ ...p, page: 1 })); }} placeholder="Search channel or show…"
             style={{ background: 'transparent', border: 'none', outline: 'none', color: 'var(--text)', fontSize: 12, width: '100%', fontFamily: 'inherit' }} />
-          {search && <button onClick={() => setSearch('')} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'var(--faint)' }}><X size={11}/></button>}
+          {search && <button onClick={() => { setSearch(''); setPaging(p => ({ ...p, page: 1 })); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'var(--faint)' }}><X size={11}/></button>}
         </div>
 
         {/* Group filter */}
-        <select className="input" value={groupFilter} onChange={e => setGroupFilter(e.target.value)}
+        <select className="input" value={groupFilter} onChange={e => { setGroupFilter(e.target.value); setPaging(p => ({ ...p, page: 1 })); }}
           style={{ width: 150, fontSize: 12, padding: '4px 8px' }}>
           <option value="__all__">All groups</option>
           {groups.map(g => <option key={g} value={g}>{g}</option>)}
@@ -230,10 +179,20 @@ export default function Guide() {
         <button className="btn btn-ghost btn-sm" onClick={jumpToNow}><Clock size={12}/> Now</button>
         <button className="btn btn-ghost btn-icon btn-sm" onClick={() => shiftView(-1)}><ChevronLeft size={14}/></button>
         <button className="btn btn-ghost btn-icon btn-sm" onClick={() => shiftView(1)}><ChevronRight size={14}/></button>
+
+        <span className="text-muted text-sm">Showing {paging.total === 0 ? 0 : ((paging.page - 1) * paging.pageSize) + 1}-{Math.min(paging.page * paging.pageSize, paging.total)} of {paging.total.toLocaleString()}</span>
+        <select className="input" value={paging.pageSize} onChange={e => setPaging(p => ({ ...p, pageSize: Number(e.target.value), page: 1 }))}
+          style={{ width: 80, fontSize: 12, padding: '4px 8px' }}>
+          {[25,50,100,200].map(sz => <option key={sz} value={sz}>{sz}</option>)}
+        </select>
+        <button className="btn btn-ghost btn-icon btn-sm" disabled={paging.page <= 1} onClick={() => setPaging(p => ({ ...p, page: Math.max(1, p.page - 1) }))}><ChevronLeft size={14}/></button>
+        <button className="btn btn-ghost btn-icon btn-sm" disabled={paging.page >= paging.totalPages} onClick={() => setPaging(p => ({ ...p, page: Math.min(p.totalPages, p.page + 1) }))}><ChevronRight size={14}/></button>
+
+        <select className="input" value={windowHours} onChange={e => { setWindowHours(Number(e.target.value)); setPaging(p => ({ ...p, page: 1 })); }} style={{ width: 90, fontSize: 12, padding: "4px 8px" }}><option value={12}>12h</option><option value={24}>24h</option></select>
         <ThemeToggle />
         <button className="btn btn-ghost btn-sm" onClick={() => nav('/settings')}><Settings size={13}/></button>
           <HeaderButtons />
-        <button className="btn btn-ghost btn-icon btn-sm" title="Refresh" onClick={() => { delete guideCache.current[id]; load(id, true); }}><RefreshCw size={13}/></button>
+        <button className="btn btn-ghost btn-icon btn-sm" title="Refresh" onClick={() => load(id)}><RefreshCw size={13}/></button>
       </header>
 
       {loading ? (
