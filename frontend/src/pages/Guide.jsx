@@ -11,7 +11,6 @@ const HOUR_WIDTH  = 260;
 const ROW_HEIGHT  = 54;
 const LABEL_WIDTH = 190;
 const DEFAULT_WINDOW_HOURS = 24;
-const GUIDE_VIEW_HOURS = 6;
 
 export default function Guide() {
   const { id }    = useParams();
@@ -20,6 +19,7 @@ export default function Guide() {
   const { fmtTime, fmtDate, toTZ } = useTZ();
   const scrollRef  = useRef();
   const labelsRef  = useRef();
+  const loadingMoreRef = useRef(false);
 
   const [playlists,  setPlaylists]  = useState([]);
   const [playlist,   setPlaylist]   = useState(null);
@@ -30,6 +30,7 @@ export default function Guide() {
   const [search,     setSearch]     = useState('');
   const [windowHours,setWindowHours]= useState(DEFAULT_WINDOW_HOURS);
   const [loading,    setLoading]    = useState(true);
+  const [loadingMore,setLoadingMore]= useState(false);
   const [selected,   setSelected]   = useState(null);
   const [now,        setNow]        = useState(new Date());
   const [tsEdit,     setTsEdit]     = useState(null);   // { channelId, current }
@@ -51,7 +52,8 @@ export default function Guide() {
   }, []);
 
   const load = useCallback(async (playlistId, targetPage = 1, append = false) => {
-    setLoading(true);
+    if (append) { loadingMoreRef.current = true; setLoadingMore(true); }
+    else setLoading(true);
     try {
       const start = viewStart.toISOString();
       const end = new Date(viewStart.getTime() + windowHours * 3600000).toISOString();
@@ -64,7 +66,7 @@ export default function Guide() {
       setChannelsData(prev => append ? [...prev, ...(guideData.channels || [])] : (guideData.channels || []));
       setPaging(p => ({ ...p, total: guideData.total || 0, totalPages: guideData.total_pages || 1, page: guideData.page || targetPage }));
     } catch (e) { toast(e.message, 'error'); }
-    finally { setLoading(false); }
+    finally { if (append) { loadingMoreRef.current = false; setLoadingMore(false); } else setLoading(false); }
   }, [paging.pageSize, groupFilter, search, viewStart, windowHours, toast]);
 
   useEffect(() => { setPaging(p => ({ ...p, page: 1 })); load(id, 1, false); }, [id, groupFilter, search, viewStart, windowHours, paging.pageSize]);
@@ -80,7 +82,7 @@ export default function Guide() {
     }
   }, [loading]);
 
-  const viewEnd = useMemo(() => new Date(viewStart.getTime() + GUIDE_VIEW_HOURS * 3600000), [viewStart]);
+  const viewEnd = useMemo(() => new Date(viewStart.getTime() + windowHours * 3600000), [viewStart, windowHours]);
 
   function timeToX(date, base = viewStart) {
     return ((date - base) / 3600000) * HOUR_WIDTH;
@@ -105,7 +107,7 @@ export default function Guide() {
   }, [viewStart, viewEnd]);
 
   const nowX   = timeToX(now);
-  const totalW = GUIDE_VIEW_HOURS * HOUR_WIDTH;
+  const totalW = windowHours * HOUR_WIDTH;
 
   const shiftView   = (h) => setViewStart(v => new Date(v.getTime() + h * 3600000));
   const jumpToDay   = (offset) => {
@@ -139,6 +141,12 @@ export default function Guide() {
 
   const syncScroll = (e) => {
     if (labelsRef.current) labelsRef.current.scrollTop = e.currentTarget.scrollTop;
+    const el = e.currentTarget;
+    const nearBottom = (el.scrollHeight - el.scrollTop - el.clientHeight) < 240;
+    const hasMore = channels.length < paging.total;
+    if (nearBottom && hasMore && !loadingMoreRef.current && !loading) {
+      load(id, paging.page + 1, true);
+    }
   };
 
   return (
@@ -184,11 +192,13 @@ export default function Guide() {
         <button className="btn btn-ghost btn-icon btn-sm" onClick={() => shiftView(1)}><ChevronRight size={14}/></button>
 
         <span className="text-muted text-sm">Showing {channels.length === 0 ? 0 : 1}-{channels.length} of {paging.total.toLocaleString()}</span>
+        <label className="text-muted text-sm">Batch size</label>
         <select className="input" title="Batch size" value={paging.pageSize} onChange={e => setPaging(p => ({ ...p, pageSize: Number(e.target.value) }))}
           style={{ width: 80, fontSize: 12, padding: '4px 8px' }}>
           {[25,50,100,200].map(sz => <option key={sz} value={sz}>{sz}</option>)}
         </select>
-        <button className="btn btn-ghost btn-sm" disabled={loading || paging.page >= paging.totalPages} onClick={() => load(id, paging.page + 1, true)}>Load more</button>
+        <button className="btn btn-ghost btn-sm" disabled={loading || loadingMore || paging.page >= paging.totalPages} onClick={() => load(id, paging.page + 1, true)}>Load more</button>
+        {loadingMore && <span className="text-muted text-sm">Loading more…</span>}
 
         <select className="input" value={windowHours} onChange={e => { setWindowHours(Number(e.target.value)); }} style={{ width: 90, fontSize: 12, padding: "4px 8px" }}><option value={12}>12h</option><option value={24}>24h</option></select>
         <ThemeToggle />
