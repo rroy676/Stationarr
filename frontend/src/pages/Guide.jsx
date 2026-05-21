@@ -24,6 +24,7 @@ export default function Guide() {
   const [playlists,  setPlaylists]  = useState([]);
   const [playlist,   setPlaylist]   = useState(null);
   const [data,       setData]       = useState(null);
+  const [channelsData,setChannelsData]= useState([]);
   const [paging,     setPaging]     = useState({ page: 1, pageSize: 50, total: 0, totalPages: 1 });
   const [groupFilter,setGroupFilter]= useState('__all__');
   const [search,     setSearch]     = useState('');
@@ -49,23 +50,25 @@ export default function Guide() {
     plApi.list().then(setPlaylists).catch(() => {});
   }, []);
 
-  const load = useCallback(async (playlistId) => {
+  const load = useCallback(async (playlistId, targetPage = 1, append = false) => {
     setLoading(true);
     try {
       const start = viewStart.toISOString();
       const end = new Date(viewStart.getTime() + windowHours * 3600000).toISOString();
       const [pl, guideData] = await Promise.all([
         plApi.get(playlistId),
-        guideApi.load(playlistId, { page: paging.page, page_size: paging.pageSize, group: groupFilter, q: search, start, end }),
+        guideApi.load(playlistId, { page: targetPage, page_size: paging.pageSize, group: groupFilter, q: search, start, end }),
       ]);
       setPlaylist(pl);
       setData(guideData);
-      setPaging(p => ({ ...p, total: guideData.total || 0, totalPages: guideData.total_pages || 1, page: guideData.page || p.page }));
+      setChannelsData(prev => append ? [...prev, ...(guideData.channels || [])] : (guideData.channels || []));
+      setPaging(p => ({ ...p, total: guideData.total || 0, totalPages: guideData.total_pages || 1, page: guideData.page || targetPage }));
     } catch (e) { toast(e.message, 'error'); }
     finally { setLoading(false); }
-  }, [paging.page, paging.pageSize, groupFilter, search, viewStart, windowHours, toast]);
+  }, [paging.pageSize, groupFilter, search, viewStart, windowHours, toast]);
 
-  useEffect(() => { load(id); }, [id, load]);
+  useEffect(() => { setPaging(p => ({ ...p, page: 1 })); load(id, 1, false); }, [id, groupFilter, search, viewStart, windowHours, paging.pageSize]);
+
 
   // Scroll to now after load
   useEffect(() => {
@@ -115,7 +118,7 @@ export default function Guide() {
   };
 
   // Filtered channels
-  const channels = useMemo(() => data?.channels || [], [data]);
+  const channels = useMemo(() => channelsData, [channelsData]);
 
   const groups = useMemo(() => data?.groups || [], [data]);
 
@@ -157,13 +160,13 @@ export default function Guide() {
         {/* Search */}
         <div className="flex gap-1" style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 8px', width: 200 }}>
           <Search size={12} color="var(--faint)" />
-          <input value={search} onChange={e => { setSearch(e.target.value); setPaging(p => ({ ...p, page: 1 })); }} placeholder="Search channel or show…"
+          <input value={search} onChange={e => { setSearch(e.target.value); }} placeholder="Search channel or show…"
             style={{ background: 'transparent', border: 'none', outline: 'none', color: 'var(--text)', fontSize: 12, width: '100%', fontFamily: 'inherit' }} />
-          {search && <button onClick={() => { setSearch(''); setPaging(p => ({ ...p, page: 1 })); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'var(--faint)' }}><X size={11}/></button>}
+          {search && <button onClick={() => { setSearch(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'var(--faint)' }}><X size={11}/></button>}
         </div>
 
         {/* Group filter */}
-        <select className="input" value={groupFilter} onChange={e => { setGroupFilter(e.target.value); setPaging(p => ({ ...p, page: 1 })); }}
+        <select className="input" value={groupFilter} onChange={e => { setGroupFilter(e.target.value); }}
           style={{ width: 150, fontSize: 12, padding: '4px 8px' }}>
           <option value="__all__">All groups</option>
           {groups.map(g => <option key={g.name} value={g.name}>{g.name} ({g.count})</option>)}
@@ -180,25 +183,24 @@ export default function Guide() {
         <button className="btn btn-ghost btn-icon btn-sm" onClick={() => shiftView(-1)}><ChevronLeft size={14}/></button>
         <button className="btn btn-ghost btn-icon btn-sm" onClick={() => shiftView(1)}><ChevronRight size={14}/></button>
 
-        <span className="text-muted text-sm">Showing {paging.total === 0 ? 0 : ((paging.page - 1) * paging.pageSize) + 1}-{Math.min(paging.page * paging.pageSize, paging.total)} of {paging.total.toLocaleString()}</span>
-        <select className="input" value={paging.pageSize} onChange={e => setPaging(p => ({ ...p, pageSize: Number(e.target.value), page: 1 }))}
+        <span className="text-muted text-sm">Showing {channels.length === 0 ? 0 : 1}-{channels.length} of {paging.total.toLocaleString()}</span>
+        <select className="input" title="Batch size" value={paging.pageSize} onChange={e => setPaging(p => ({ ...p, pageSize: Number(e.target.value) }))}
           style={{ width: 80, fontSize: 12, padding: '4px 8px' }}>
           {[25,50,100,200].map(sz => <option key={sz} value={sz}>{sz}</option>)}
         </select>
-        <button className="btn btn-ghost btn-icon btn-sm" disabled={paging.page <= 1} onClick={() => setPaging(p => ({ ...p, page: Math.max(1, p.page - 1) }))}><ChevronLeft size={14}/></button>
-        <button className="btn btn-ghost btn-icon btn-sm" disabled={paging.page >= paging.totalPages} onClick={() => setPaging(p => ({ ...p, page: Math.min(p.totalPages, p.page + 1) }))}><ChevronRight size={14}/></button>
+        <button className="btn btn-ghost btn-sm" disabled={loading || paging.page >= paging.totalPages} onClick={() => load(id, paging.page + 1, true)}>Load more</button>
 
-        <select className="input" value={windowHours} onChange={e => { setWindowHours(Number(e.target.value)); setPaging(p => ({ ...p, page: 1 })); }} style={{ width: 90, fontSize: 12, padding: "4px 8px" }}><option value={12}>12h</option><option value={24}>24h</option></select>
+        <select className="input" value={windowHours} onChange={e => { setWindowHours(Number(e.target.value)); }} style={{ width: 90, fontSize: 12, padding: "4px 8px" }}><option value={12}>12h</option><option value={24}>24h</option></select>
         <ThemeToggle />
         <button className="btn btn-ghost btn-sm" onClick={() => nav('/settings')}><Settings size={13}/></button>
           <HeaderButtons />
-        <button className="btn btn-ghost btn-icon btn-sm" title="Refresh" onClick={() => load(id)}><RefreshCw size={13}/></button>
+        <button className="btn btn-ghost btn-icon btn-sm" title="Refresh" onClick={() => load(id, 1, false)}><RefreshCw size={13}/></button>
       </header>
 
 
       {data?.guide_index?.building > 0 && (
         <div style={{ padding: '8px 12px', fontSize: 12, color: 'var(--muted)', borderBottom: '1px solid var(--border2)' }}>
-          Guide index is building… ({data.guide_index.building}/{data.guide_index.total} sources)
+          Guide index is building. The first load after an EPG update may be slower. The Guide will be faster once indexing is complete. ({data.guide_index.building}/{data.guide_index.total} sources)
         </div>
       )}
       {data?.guide_index?.failed > 0 && (
