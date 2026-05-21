@@ -58,7 +58,6 @@ The branding package also includes additional PNG sizes, SVG versions, horizonta
 </p>
 
 **TV Guide**
-> TODO: Refresh Guide screenshots for the newer two-bar Guide UI in a follow-up docs update.
 
 <p align="center">
   <img src="docs/screenshots/guide.png" alt="TV Guide dark" width="49%"/>
