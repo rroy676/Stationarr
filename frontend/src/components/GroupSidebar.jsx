@@ -4,15 +4,13 @@ import { Eye, EyeOff, GripVertical } from 'lucide-react';
 const MIN_WIDTH = 160;
 const MAX_WIDTH = 320;
 
-export default function GroupSidebar({ groups, total, active, onSelect, onToggleGroup, channels }) {
+export default function GroupSidebar({ groups, total, active, onSelect, onToggleGroup }) {
   const [width, setWidth]   = useState(200);
   const dragging            = useRef(false);
   const startX              = useRef(0);
   const startW              = useRef(0);
 
   const sorted = Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
-
-  const groupEnabled = (grp) => channels.filter(c => c.grp === grp).some(c => c.enabled);
 
   const onMouseDown = useCallback((e) => {
     dragging.current = true;
@@ -44,8 +42,9 @@ export default function GroupSidebar({ groups, total, active, onSelect, onToggle
 
       <div style={{ height: 1, background: 'var(--border2)', margin: '6px 0', flexShrink: 0 }} />
 
-      {sorted.map(([g, count]) => {
-        const enabled = groupEnabled(g);
+      {sorted.map(([g, meta]) => {
+        const count = meta?.count ?? 0;
+        const enabled = (meta?.enabled_count ?? 0) > 0;
         return (
           <div key={g} style={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
             <GroupItem

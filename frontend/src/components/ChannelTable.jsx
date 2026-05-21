@@ -7,6 +7,7 @@ import { Search, GripVertical, Eye, EyeOff, Edit2, Trash2, RefreshCw, Image, Fil
 export default function ChannelTable({
   channels, allChannels, selectedIds, editingId, search,
   onSearch, onSelect, onEdit, onReorder, onBulkAction, onAutoMatch, hasEpg,
+  serverMode, loading, enabledFilter, onEnabledFilterChange, page, pageSize, total, onPageChange,
 }) {
   const [dragIdx,  setDragIdx]  = useState(null);
   const [overIdx,  setOverIdx]  = useState(null);
@@ -30,15 +31,16 @@ export default function ChannelTable({
   const [filterEpg,     setFilterEpg]     = useState('all');   // all | mapped | unmapped
 
   // ── Filters must be computed before allSelected references them ──
+  const effectiveEnabled = serverMode ? enabledFilter : filterEnabled;
   const displayChannels = channels.filter(ch => {
-    if (filterEnabled === 'enabled'  && !ch.enabled)  return false;
-    if (filterEnabled === 'disabled' && ch.enabled)   return false;
+    if (effectiveEnabled === 'enabled'  && !ch.enabled)  return false;
+    if (effectiveEnabled === 'disabled' && ch.enabled)   return false;
     if (filterEpg     === 'mapped'   && !ch.epg_id)   return false;
     if (filterEpg     === 'unmapped' && ch.epg_id)    return false;
     return true;
   });
 
-  const activeFilterCount = (filterEnabled !== 'all' ? 1 : 0) + (filterEpg !== 'all' ? 1 : 0);
+  const activeFilterCount = (effectiveEnabled !== 'all' ? 1 : 0) + (filterEpg !== 'all' ? 1 : 0);
 
   const allSelected = displayChannels.length > 0 && displayChannels.every(c => selectedIds.has(c.id));
   const someSelected = selectedIds.size > 0;
@@ -157,6 +159,7 @@ export default function ChannelTable({
         {someSelected && (
           <>
             <span className="text-muted text-sm">{selectedIds.size} selected</span>
+            {serverMode && <span className="text-xs text-muted">Bulk actions apply to selected visible rows only.</span>}
             <button className="btn btn-sm" onClick={() => onBulkAction('enable')}><Eye size={12}/> Enable</button>
             <button className="btn btn-sm" onClick={() => onBulkAction('disable')}><EyeOff size={12}/> Disable</button>
             <div className="flex gap-1">
@@ -197,9 +200,9 @@ export default function ChannelTable({
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span className="text-xs text-muted" style={{ fontWeight: 600 }}>Status</span>
             {[['all','All'],['enabled','Enabled'],['disabled','Disabled']].map(([val, label]) => (
-              <button key={val} className={`btn btn-sm ${filterEnabled === val ? 'btn-primary' : ''}`}
+                <button key={val} className={`btn btn-sm ${effectiveEnabled === val ? 'btn-primary' : ''}`}
                 style={{ fontSize: 11, padding: '3px 10px' }}
-                onClick={() => setFilterEnabled(val)}>{label}</button>
+                onClick={() => serverMode ? onEnabledFilterChange(val) : setFilterEnabled(val)}>{label}</button>
             ))}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -212,7 +215,7 @@ export default function ChannelTable({
           </div>
           {activeFilterCount > 0 && (
             <button className="btn btn-ghost btn-sm" style={{ fontSize: 11, marginLeft: 'auto' }}
-              onClick={() => { setFilterEnabled('all'); setFilterEpg('all'); }}>
+              onClick={() => { serverMode ? onEnabledFilterChange('all') : setFilterEnabled('all'); setFilterEpg('all'); }}>
               <X size={11}/> Clear filters
             </button>
           )}
@@ -224,6 +227,7 @@ export default function ChannelTable({
 
       {/* Table */}
       <div ref={scrollContainer} style={{ flex: 1, overflowY: 'auto' }} onScroll={onScroll}>
+        {loading && <div style={{ padding: '8px 14px', fontSize: 12, color: 'var(--muted)' }}>Loading channels…</div>}
         {displayChannels.length === 0 ? (
           <div className="empty-state">
             <p>No channels{search ? ' matching your search' : ' in this group'}</p>
@@ -258,11 +262,11 @@ export default function ChannelTable({
                     overIdx === idx        ? 'drag-over': '',
                   ].join(' ')}
                   style={{ opacity: ch.enabled ? 1 : 0.45, cursor: 'pointer' }}
-                  draggable
-                  onDragStart={e => handleDragStart(e, idx)}
-                  onDragOver={e  => handleDragOver(e, idx)}
-                  onDrop={e      => handleDrop(e, idx)}
-                  onDragEnd={handleDragEnd}
+                  draggable={!serverMode}
+                  onDragStart={serverMode ? undefined : (e => handleDragStart(e, idx))}
+                  onDragOver={serverMode ? undefined : (e  => handleDragOver(e, idx))}
+                  onDrop={serverMode ? undefined : (e      => handleDrop(e, idx))}
+                  onDragEnd={serverMode ? undefined : handleDragEnd}
                   onClick={e => handleRowClick(e, ch, idx)}
                 >
                   <td onClick={e => handleCheckboxClick(e, ch, idx)}>
@@ -270,7 +274,7 @@ export default function ChannelTable({
                       onChange={() => {}} // controlled via handleCheckboxClick
                     />
                   </td>
-                  <td style={{ color: 'var(--faint)', cursor: 'grab', paddingLeft: 6 }}>
+                  <td style={{ color: 'var(--faint)', cursor: serverMode ? 'not-allowed' : 'grab', paddingLeft: 6, opacity: serverMode ? 0.45 : 1 }}>
                     <GripVertical size={13} />
                   </td>
                   <td>
@@ -315,6 +319,15 @@ export default function ChannelTable({
           </table>
         )}
       </div>
+      {serverMode && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 14px', borderTop: '1px solid var(--border2)' }}>
+          <span className="text-xs text-muted">Showing {Math.min((page - 1) * pageSize + 1, total)}-{Math.min(page * pageSize, total)} of {total}</span>
+          <div className="flex gap-1">
+            <button className="btn btn-sm" disabled={page <= 1} onClick={() => onPageChange(page - 1)}>Prev</button>
+            <button className="btn btn-sm" disabled={page * pageSize >= total} onClick={() => onPageChange(page + 1)}>Next</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
