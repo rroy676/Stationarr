@@ -44,21 +44,7 @@ export default function Guide() {
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 30000);
-  
-  useEffect(() => {
-    const root = scrollRef.current;
-    const sentinel = loadMoreSentinelRef.current;
-    if (!root || !sentinel) return;
-
-    const observer = new IntersectionObserver((entries) => {
-      if (entries.some(en => en.isIntersecting)) loadNextPage();
-    }, { root, rootMargin: '300px 0px', threshold: 0.01 });
-
-    observer.observe(sentinel);
-    return () => observer.disconnect();
-  }, [loadNextPage, channels.length, paging.total, paging.page, paging.totalPages]);
-
-  return () => clearInterval(t);
+    return () => clearInterval(t);
   }, []);
 
   // Load playlists list for switcher
@@ -98,24 +84,13 @@ export default function Guide() {
   }, [loading]);
 
   const viewEnd = useMemo(() => new Date(viewStart.getTime() + windowHours * 3600000), [viewStart, windowHours]);
-  const visibleWindowLabel = useMemo(() => `${fmtTime(viewStart)} → ${fmtDate(viewEnd)} ${fmtTime(viewEnd)}`, [viewStart, viewEnd, fmtTime, fmtDate]);
+  const visibleWindowLabel = useMemo(
+    () => `${fmtTime(viewStart)} → ${fmtDate(viewEnd)} ${fmtTime(viewEnd)}`,
+    [viewStart, viewEnd, fmtTime, fmtDate]
+  );
 
   function timeToX(date, base = viewStart) {
-  
-  useEffect(() => {
-    const root = scrollRef.current;
-    const sentinel = loadMoreSentinelRef.current;
-    if (!root || !sentinel) return;
-
-    const observer = new IntersectionObserver((entries) => {
-      if (entries.some(en => en.isIntersecting)) loadNextPage();
-    }, { root, rootMargin: '300px 0px', threshold: 0.01 });
-
-    observer.observe(sentinel);
-    return () => observer.disconnect();
-  }, [loadNextPage, channels.length, paging.total, paging.page, paging.totalPages]);
-
-  return ((date - base) / 3600000) * HOUR_WIDTH;
+    return ((date - base) / 3600000) * HOUR_WIDTH;
   }
 
   // Time slots every 30 min
@@ -181,19 +156,21 @@ export default function Guide() {
     if (labelsRef.current) labelsRef.current.scrollTop = e.currentTarget.scrollTop;
   };
 
-
   useEffect(() => {
     const root = scrollRef.current;
     const sentinel = loadMoreSentinelRef.current;
     if (!root || !sentinel) return;
 
-    const observer = new IntersectionObserver((entries) => {
-      if (entries.some(en => en.isIntersecting)) loadNextPage();
-    }, { root, rootMargin: '300px 0px', threshold: 0.01 });
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some(en => en.isIntersecting)) loadNextPage();
+      },
+      { root, rootMargin: '300px 0px', threshold: 0.01 }
+    );
 
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [loadNextPage, channels.length, paging.total, paging.page, paging.totalPages]);
+  }, [loadNextPage, channels.length]);
 
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--bg)' }}>
@@ -315,21 +292,7 @@ export default function Guide() {
 
                 {timeSlots.map((t, i) => {
                   const isDayBoundary = t.getHours() === 0 && t.getMinutes() === 0;
-                
-  useEffect(() => {
-    const root = scrollRef.current;
-    const sentinel = loadMoreSentinelRef.current;
-    if (!root || !sentinel) return;
-
-    const observer = new IntersectionObserver((entries) => {
-      if (entries.some(en => en.isIntersecting)) loadNextPage();
-    }, { root, rootMargin: '300px 0px', threshold: 0.01 });
-
-    observer.observe(sentinel);
-    return () => observer.disconnect();
-  }, [loadNextPage, channels.length, paging.total, paging.page, paging.totalPages]);
-
-  return (
+                  return (
                     <div key={i} style={{ position: 'absolute', left: timeToX(t) }}>
                       <div style={{ paddingLeft: 6, paddingTop: 6, fontSize: 11, color: isDayBoundary ? 'var(--accent)' : 'var(--muted)', fontWeight: isDayBoundary ? 700 : 400, whiteSpace: 'nowrap' }}>
                         {fmtTime(t)}
@@ -424,20 +387,6 @@ function ChannelRow({ ch, timeToX, totalW, now, viewStart, viewEnd, fmtTime, onS
   const progs = ch.programmes || [];
   const ts    = ch.timeshift || 0;
 
-
-  useEffect(() => {
-    const root = scrollRef.current;
-    const sentinel = loadMoreSentinelRef.current;
-    if (!root || !sentinel) return;
-
-    const observer = new IntersectionObserver((entries) => {
-      if (entries.some(en => en.isIntersecting)) loadNextPage();
-    }, { root, rootMargin: '300px 0px', threshold: 0.01 });
-
-    observer.observe(sentinel);
-    return () => observer.disconnect();
-  }, [loadNextPage, channels.length, paging.total, paging.page, paging.totalPages]);
-
   return (
     <div style={{ height: ROW_HEIGHT, position: 'relative', borderBottom: '1px solid var(--border2)' }}>
       {progs.map((p, i) => {
@@ -455,21 +404,7 @@ function ChannelRow({ ch, timeToX, totalW, now, viewStart, viewEnd, fmtTime, onS
         const pct      = isNow ? Math.min(100, ((now - start) / (stop - start)) * 100) : 0;
         const isMatch  = search && p.title?.toLowerCase().includes(search.toLowerCase());
 
-      
-  useEffect(() => {
-    const root = scrollRef.current;
-    const sentinel = loadMoreSentinelRef.current;
-    if (!root || !sentinel) return;
-
-    const observer = new IntersectionObserver((entries) => {
-      if (entries.some(en => en.isIntersecting)) loadNextPage();
-    }, { root, rootMargin: '300px 0px', threshold: 0.01 });
-
-    observer.observe(sentinel);
-    return () => observer.disconnect();
-  }, [loadNextPage, channels.length, paging.total, paging.page, paging.totalPages]);
-
-  return (
+        return (
           <div key={i} onClick={() => onSelect({ ...p, start, stop })}
             style={{
               position: 'absolute', left: x + 1, width: w - 2, top: 4, bottom: 4,
