@@ -58,6 +58,7 @@ The branding package also includes additional PNG sizes, SVG versions, horizonta
 </p>
 
 **TV Guide**
+
 <p align="center">
   <img src="docs/screenshots/guide.png" alt="TV Guide dark" width="49%"/>
   <img src="docs/screenshots/guide-light.png" alt="TV Guide light" width="49%"/>
@@ -78,8 +79,11 @@ The branding package also includes additional PNG sizes, SVG versions, horizonta
 - Bulk operations — enable, disable, delete, reassign group
 - Ctrl/Cmd+click and Shift+click multi-select
 - Filter channels by enabled status or EPG mapping
-- Virtual scrolling — handles 5000+ channel playlists smoothly
-- Group sidebar with eye toggle (enable/disable all channels in a group at once)
+- Server-side paginated channel editor for very large playlists.
+- Page-size controls.
+- Server-side search, group, and enabled/disabled filtering.
+- Group sidebar with full-group enable/disable actions.
+- Selected-row bulk operations.
 
 ### EPG (Electronic Programme Guide)
 - Multiple XMLTV sources with drag-to-reorder priority
@@ -91,6 +95,8 @@ The branding package also includes additional PNG sizes, SVG versions, horizonta
 - Memory-efficient SAX streaming parser — handles 100MB+ XMLTV files without RAM spikes
 - Gzip-compressed EPG output — reduces transfer size ~90% for fast player loading
 - Built-in free EPG source library (EPG.pw, i.mjh.nz, xmltv.net) for 30+ countries
+- Background Guide index builds after EPG fetch/upload/refresh so the TV Guide can query programme data quickly.
+- Guide index status messages show when indexing is building or failed.
 
 ### iptv-org/epg scraper integration
 - Optional Docker sidecar to scrape EPG from 100+ websites
@@ -100,12 +106,16 @@ The branding package also includes additional PNG sizes, SVG versions, horizonta
 - Auto-fetch guide into Stationarr when scrape completes
 
 ### TV Guide
-- Time grid with programme blocks and progressive loading
-- Search by channel name or programme title
-- Filter by group, switch playlists without leaving the guide
-- Day navigation (Today, Tomorrow, day-of-week buttons)
-- Adjust timeshift per channel directly from the guide
-- Timezone selector — applied to all time displays
+- SQLite-backed Guide programme index.
+- Lazy-loaded Guide rows.
+- Automatic load-more on scroll.
+- Manual Load more fallback.
+- Batch-size controls.
+- 12h/24h visible Guide windows.
+- Server-side Guide search/group/time-window queries.
+- Day navigation (Today, Tomorrow, day-of-week buttons).
+- Adjust timeshift per channel directly from the Guide.
+- Timezone selector applied to all time displays.
 
 ### Logo management
 - Auto-match logos from EPG sources
@@ -347,12 +357,24 @@ If a channel's guide data is offset by a fixed number of hours, set **Timeshift*
 **Auto-refresh EPG**
 In EPG source settings, enable **Auto-refresh** and pick an interval — Stationarr re-fetches the XMLTV file on a schedule.
 
+After an EPG source is fetched, uploaded, or refreshed, Stationarr builds a Guide index in the background. The first Guide load after an EPG update may show an indexing message; once indexing is complete, Guide browsing is much faster.
+
 **ChannelsDVR**
 Add your Stationarr **M3U URL** as an M3U source in ChannelsDVR. Add your **EPG URL** separately under Guide → Guide Data Sources. ChannelsDVR matches guide data to channels using the `tvg-id` attribute — make sure channels have EPG entries assigned in Stationarr.
 
 ---
 
-### 4. Serving to players
+### 4. Using the TV Guide
+
+The TV Guide uses a background SQLite programme index for faster browsing with large XMLTV files.
+
+Guide rows are loaded in batches. Scroll down to automatically load more channels, or use the Load more button. Use Batch size to control how many channels are loaded at a time.
+
+Use the 12h/24h selector to change the visible time window. Search and group filters reset the Guide to the first matching batch.
+
+---
+
+### 5. Serving to players
 
 Click **Serve** on any playlist to get your personal URLs:
 
@@ -404,7 +426,7 @@ Stationarr/
 │   │   ├── playlists.js      Playlist CRUD + import + clone
 │   │   ├── channels.js       Channel CRUD + reorder + bulk ops
 │   │   ├── epg.js            EPG source management + fetch + match
-│   │   ├── guide.js          TV Guide API with caching
+│   │   ├── guide.js          TV Guide API using DB-backed programme index
 │   │   ├── scraper.js        iptv-org/epg scraper integration
 │   │   ├── serve.js          Public hosted M3U + EPG + Xtream output
 │   │   ├── backup.js         Backup and restore user data
@@ -413,7 +435,9 @@ Stationarr/
 │       ├── m3u.js            Parse + export M3U
 │       ├── xmltv.js          SAX streaming XMLTV parser
 │       ├── xmltv-merge.js    Multi-source XMLTV merge with timeshift
-│       └── epg-reader.js     On-demand programme extraction for guide
+│       ├── guide-indexer.js  Background XMLTV-to-SQLite Guide index builder
+│       └── epg-reader.js     Legacy/on-demand programme extraction helper
+├── frontend/branding/        Logo, favicon, and branding assets
 ├── frontend/src/
 │   ├── pages/
 │   │   ├── Dashboard.jsx     Playlist list
@@ -424,7 +448,7 @@ Stationarr/
 │   │   ├── Admin.jsx         User management (admin only)
 │   │   └── Help.jsx          In-app help and documentation
 │   └── components/
-│       ├── ChannelTable.jsx  Virtual-scrolling channel list
+│       ├── ChannelTable.jsx  Server-paginated channel list
 │       ├── ChannelPanel.jsx  Channel detail + EPG source picker
 │       ├── EPGPanel.jsx      EPG source management + priority ordering
 │       ├── GroupSidebar.jsx  Draggable group filter sidebar
