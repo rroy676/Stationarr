@@ -5,6 +5,7 @@ const fetch  = require('node-fetch');
 const fs     = require('fs');
 const path   = require('path');
 const { exec, spawn } = require('child_process');
+const logger = require('../logger');
 
 const DATA_DIR      = process.env.DATA_DIR || './data';
 const SCRAPER_URL   = process.env.SCRAPER_URL || 'http://epg:3000';
@@ -13,6 +14,25 @@ const EPG_SITES_DIR = process.env.EPG_SITES_DIR || '/epg/sites';
 const EPG_SITES_REMOTE_BASE = process.env.EPG_SITES_REMOTE_BASE || 'https://raw.githubusercontent.com/iptv-org/epg/master/sites';
 const SITE_DEF_CACHE_TTL_MS = Number(process.env.EPG_SITES_CACHE_TTL_MS || (6 * 60 * 60 * 1000));
 const siteDefCache = new Map();
+
+const XMLTV_VARIANT_SUFFIX_RE = /@(SD|HD|FHD|UHD)$/i;
+
+function normalizeScraperXmltvIdForOutput(xmltvId) {
+  const original = String(xmltvId || '').trim();
+  if (!original) {
+    return { normalized: original, changed: false, reason: 'empty' };
+  }
+
+  if (!XMLTV_VARIANT_SUFFIX_RE.test(original)) {
+    return { normalized: original, changed: false, reason: 'no-variant-suffix' };
+  }
+
+  return {
+    normalized: original.replace(XMLTV_VARIANT_SUFFIX_RE, ''),
+    changed: true,
+    reason: 'quality-variant-stripped',
+  };
+}
 
 function getConfiguredChannelCountFromXML() {
   if (!fs.existsSync(CHANNELS_PATH)) return 0;
@@ -100,6 +120,7 @@ router.post('/channels', requireAuth, async (req, res) => {
     res.status(201).json(ch);
   } catch (e) {
     if (e && e.code === 'SQLITE_CONSTRAINT_FOREIGNKEY') {
+      logger.warn('auth','Stale session/auth warning',{ route: '/api/scraper/channels', user_id: req.user?.id });
       return res.status(401).json({
         error: 'Your session is no longer valid. Please log in again.',
         code: 'STALE_TOKEN',
@@ -206,7 +227,22 @@ function writeChannelsXML(userId) {
     'SELECT * FROM scraper_channels WHERE user_id = ? AND enabled = 1 ORDER BY site, name'
   ).all(userId);
 
-  const xml = buildChannelsXML(channels);
+  const outputChannels = channels.map((ch) => {
+    const normalized = normalizeScraperXmltvIdForOutput(ch.xmltv_id);
+    if (normalized.changed) {
+      console.info('[scraper] normalized xmltv_id for channels.xml output', {
+        site: ch.site,
+        site_id: ch.site_id,
+        original_xmltv_id: ch.xmltv_id,
+        resolved_xmltv_id: ch.xmltv_id,
+        final_xmltv_id: normalized.normalized,
+        normalization_reason: normalized.reason,
+      });
+    }
+    return { ...ch, xmltv_id: normalized.normalized };
+  });
+
+  const xml = buildChannelsXML(outputChannels);
   const dir  = path.dirname(CHANNELS_PATH);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(CHANNELS_PATH, xml, 'utf8');
@@ -236,10 +272,22 @@ function parseCSV(text) {
 }
 
 async function resolveScraperChannelDefinition({ site, xmltv_id, site_id, name, channel_id }) {
-  // Preserve site-specific definition when client already provides both fields
-  if (xmltv_id && site_id) return { ok: true, xmltv_id, site_id };
-
   const defs = await loadSiteChannelDefinitions(site);
+
+  // Preserve site-specific definition when client already provides both fields
+  if (xmltv_id && site_id) {
+    const normalized = normalizeScraperXmltvIdForOutput(xmltv_id);
+    console.info('[scraper] resolved channel mapping', {
+      site,
+      site_id,
+      original_xmltv_id: xmltv_id,
+      resolved_xmltv_id: xmltv_id,
+      final_xmltv_id: normalized.normalized,
+      normalization_reason: normalized.reason,
+      normalized: normalized.changed,
+    });
+    return { ok: true, xmltv_id: normalized.normalized, site_id };
+  }
   if (!defs.length) {
     return {
       ok: false,
@@ -248,14 +296,29 @@ async function resolveScraperChannelDefinition({ site, xmltv_id, site_id, name, 
   }
 
   const norm = (v) => String(v || '').trim().toLowerCase();
+  const logResolution = (matchType, originalXmltvId, resolvedXmltvId, resolvedSiteId) => {
+    const normalized = normalizeScraperXmltvIdForOutput(resolvedXmltvId);
+    console.info('[scraper] resolved channel mapping', {
+      site,
+      site_id: resolvedSiteId,
+      original_xmltv_id: originalXmltvId || '',
+      resolved_xmltv_id: resolvedXmltvId,
+      final_xmltv_id: normalized.normalized,
+      normalization_reason: normalized.reason,
+      normalized: normalized.changed,
+      match_type: matchType,
+    });
+    return { ok: true, xmltv_id: normalized.normalized, site_id: resolvedSiteId };
+  };
+
   const byId = defs.find(d => norm(d.xmltv_id) === norm(xmltv_id));
-  if (byId) return { ok: true, xmltv_id: byId.xmltv_id, site_id: byId.site_id };
+  if (byId) return logResolution('xmltv_id', xmltv_id, byId.xmltv_id, byId.site_id);
 
   const byChannelId = defs.find(d => norm(d.channel_id) === norm(channel_id));
-  if (byChannelId) return { ok: true, xmltv_id: byChannelId.xmltv_id, site_id: byChannelId.site_id };
+  if (byChannelId) return logResolution('channel_id', xmltv_id, byChannelId.xmltv_id, byChannelId.site_id);
 
   const byName = defs.find(d => norm(d.name) === norm(name));
-  if (byName) return { ok: true, xmltv_id: byName.xmltv_id, site_id: byName.site_id };
+  if (byName) return logResolution('name', xmltv_id, byName.xmltv_id, byName.site_id);
 
   return { ok: false, error: `No valid site_id mapping found for "${name}" on ${site}.` };
 }
@@ -358,6 +421,9 @@ router.get('/run', async (req, res) => {
   try { req.user = jwt.verify(token, process.env.JWT_SECRET); }
   catch { return res.status(401).send('Invalid token'); }
 
+  const runId = `run_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+  logger.info('scraper', 'Manual scraper run started', { user_id: req.user.id, run_id: runId });
+
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
@@ -367,16 +433,22 @@ router.get('/run', async (req, res) => {
     try { res.write(`data: ${JSON.stringify(data)}\n\n`); } catch {}
   };
   const runLines = [];
+  let persistedLineCount = 0;
   const pushRunLine = (line) => {
     const trimmed = (line || '').trim();
     if (!trimmed) return;
     runLines.push(trimmed);
+    if (persistedLineCount < 250) {
+      persistedLineCount += 1;
+      logger.info('scraper', 'Scraper run output line', { user_id: req.user.id, run_id: runId, line: trimmed, line_no: persistedLineCount });
+    }
     send({ type: 'log', msg: trimmed });
   };
 
   const scraperUrl = process.env.SCRAPER_URL || 'http://epg:3000';
   const configuredCount = getConfiguredChannelCountFromXML();
   if (configuredCount === 0) {
+    logger.warn('scraper', 'Manual scraper run blocked: no configured channels', { user_id: req.user.id });
     send({ type: 'error', msg: 'No scraper channels are configured. Add and enable at least one channel before running.' });
     return res.end();
   }
@@ -388,6 +460,7 @@ router.get('/run', async (req, res) => {
     const check = await fetch(`${scraperUrl}/guide.xml`, { method: 'HEAD', timeout: 5000 });
     send({ type: 'log', msg: 'Scraper container is online.' });
   } catch (e) {
+    logger.error('scraper', 'Manual scraper run failure', { user_id: req.user.id, error: e?.message || String(e) });
     send({ type: 'error', msg: `Cannot reach scraper at ${scraperUrl}. Is the epg container running? Error: ${e.message}` });
     return res.end();
   }
@@ -431,20 +504,25 @@ router.get('/run', async (req, res) => {
       if (code === 0 || code === null) {
         const zeroProgramLines = runLines.filter(l => /\(0 programs\)/i.test(l));
         if (zeroProgramLines.length > 0) {
-          send({ type: 'warning', msg: 'Scraper ran, but no programmes were found for the selected channels/source.' });
-          send({ type: 'warning', msg: 'Try another scraper source/site for this channel.' });
+          send({ type: 'warning', msg: 'Scraper completed, but 0 programme entries were returned.' });
+          send({ type: 'warning', msg: 'This usually means the selected scraper source does not support one or more mapped channels, or the channel mapping/xmltv_id is invalid for that source.' });
           zeroProgramLines.slice(0, 5).forEach(l => send({ type: 'warning', msg: `↳ ${l}` }));
         }
         const stats = await getGuideStats(scraperUrl);
+        if (!stats) logger.info('scraper', 'Manual scraper run success', { user_id: req.user.id, stats_available: false });
         if (stats) {
           send({ type: 'log', msg: `Generated guide.xml contains ${stats.channelCount} channel(s) and ${stats.programmeCount} programme(s).` });
+          logger.info('scraper', 'Scraper fetch guide/import success', { user_id: req.user.id, run_id: runId, channels: stats.channelCount, programmes: stats.programmeCount });
           if (stats.channelCount > 0 && stats.programmeCount === 0) {
-            send({ type: 'warning', msg: 'Scraper ran, but no programmes were found for the selected channels/source.' });
-            send({ type: 'warning', msg: 'Try another scraper source/site for this channel.' });
+            send({ type: 'warning', msg: 'Scraper completed, but 0 programme entries were returned.' });
+            logger.warn('scraper', 'Scraper warning: 0 programme entries loaded', { user_id: req.user.id, run_id: runId, channels: stats.channelCount, programmes: stats.programmeCount });
+            send({ type: 'warning', msg: 'This usually means the selected scraper source does not support one or more mapped channels, or the channel mapping/xmltv_id is invalid for that source.' });
           }
         }
+        logger.info('scraper', 'Manual scraper run success', { user_id: req.user.id, run_id: runId, captured_lines: runLines.length });
         send({ type: 'done', msg: 'Scrape completed! Stationarr will now fetch the guide...' });
       } else {
+        logger.error('scraper', 'Manual scraper run failure', { user_id: req.user.id, run_id: runId, code, captured_lines: runLines.length });
         send({ type: 'error', msg: `Scraper exited with code ${code}` });
       }
       res.end();

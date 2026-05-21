@@ -7,6 +7,32 @@
 - Added server-side channel query filters for playlist, search text, group, and enabled/disabled status to keep searches responsive on very large playlists.
 - Added new SQLite indexes for common large-playlist channel query paths (`playlist_id + ord`, `playlist_id + grp`, `playlist_id + enabled`, and `playlist_id + tvg_id`).
 - Editor table now includes paging controls and loading feedback while channel pages are fetched.
+## [1.0.12] — 2026-05-20
+
+### Added
+- Added Phase 1 in-app **System → Logs** page with backend structured logging APIs, retention-limited SQLite log storage, level/category/search filters, and sanitized TXT/JSON debug exports.
+- Added support for copying visible logs to clipboard.
+- Added scraper, EPG, playlist, scheduler, startup, and auth/session support events to the in-app logs.
+- Added captured scraper run output lines and metadata/details in debug exports.
+
+### Security
+- Redacted sensitive values from logs and exports, including passwords, API keys, auth tokens, cookies, JWTs, and private source URL query strings.
+
+### References
+- Fixes #48
+- PR #57
+
+## [1.0.11] — 2026-05-20
+
+### Fixed
+- Normalized scraper XMLTV IDs before writing scraper `channels.xml` by stripping display/quality suffixes like `@SD`, `@HD`, `@FHD`, and `@UHD`, including for already-saved scraper channels when `channels.xml` is regenerated.
+- Added scraper mapping debug logs that include original XMLTV ID, resolved XMLTV ID, site, site_id, and final XMLTV ID written after normalization decisions.
+- Improved scraper run warnings for successful runs that still return 0 programme entries, with guidance that source support or channel mapping validity may be the cause.
+- Clarified that `tvtv.us` HTTP 403 responses are upstream source access failures and not the Stationarr XMLTV ID normalization bug.
+
+### References
+- Fixes #38
+- Refs #4
 
 ## [1.0.10] — 2026-05-19
 
