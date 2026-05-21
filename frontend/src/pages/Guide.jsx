@@ -117,7 +117,7 @@ export default function Guide() {
   // Filtered channels
   const channels = useMemo(() => data?.channels || [], [data]);
 
-  const groups = useMemo(() => [...new Set((data?.channels || []).map(c => c.grp))].filter(Boolean).sort(), [data]);
+  const groups = useMemo(() => data?.groups || [], [data]);
 
   // Save timeshift from guide
   const saveTimeshift = async (channelId, ts) => {
@@ -166,7 +166,7 @@ export default function Guide() {
         <select className="input" value={groupFilter} onChange={e => { setGroupFilter(e.target.value); setPaging(p => ({ ...p, page: 1 })); }}
           style={{ width: 150, fontSize: 12, padding: '4px 8px' }}>
           <option value="__all__">All groups</option>
-          {groups.map(g => <option key={g} value={g}>{g}</option>)}
+          {groups.map(g => <option key={g.name} value={g.name}>{g.name} ({g.count})</option>)}
         </select>
 
         {/* Day navigation */}

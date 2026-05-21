@@ -10,8 +10,25 @@ function setStatus(sourceId, status, message = null) {
     .run(status, message, sourceId);
 }
 
+const pending = new Set();
+
 function queueGuideIndex(sourceId, cachePath) {
-  setImmediate(() => buildGuideIndex(sourceId, cachePath).catch(() => {}));
+  const key = String(sourceId);
+  if (pending.has(key)) return;
+  pending.add(key);
+  setImmediate(() => buildGuideIndex(sourceId, cachePath).catch(() => {}).finally(() => pending.delete(key)));
+}
+
+function queueStaleGuideIndexes() {
+  const stale = db.prepare(`
+    SELECT id, cache_path
+    FROM epg_sources
+    WHERE cache_path IS NOT NULL
+      AND cache_path != ''
+      AND (guide_index_status IS NULL OR guide_index_status IN ('idle','failed'))
+  `).all();
+  stale.forEach(src => queueGuideIndex(src.id, src.cache_path));
+  if (stale.length) logger.info('epg', 'Queued stale guide indexes on startup', { sourceCount: stale.length });
 }
 
 async function buildGuideIndex(sourceId, cachePath) {
@@ -26,7 +43,13 @@ async function buildGuideIndex(sourceId, cachePath) {
 
     db.transaction(() => del.run(sourceId))();
 
+    const BATCH_SIZE = 1000;
+    const flushBatch = db.transaction((rows) => {
+      for (const r of rows) ins.run(sourceId, r.epgId, r.start, r.stop, r.title, r.subtitle, r.desc, r.category);
+    });
+
     let count = 0;
+    let batch = [];
     await new Promise((resolve, reject) => {
       const parser = sax.createStream(true);
       let inProg = false; let cur = null; let field = null;
@@ -52,14 +75,15 @@ async function buildGuideIndex(sourceId, cachePath) {
         if (['title','desc','category','sub-title'].includes(name)) field = null;
         if (name === 'programme' && inProg && cur) {
           if (cur.start && cur.stop) {
-            ins.run(sourceId, cur.epgId, cur.start.toISOString(), cur.stop.toISOString(), cur.title, cur.subtitle, cur.desc, cur.category);
+            batch.push({ epgId: cur.epgId, start: cur.start.toISOString(), stop: cur.stop.toISOString(), title: cur.title, subtitle: cur.subtitle, desc: cur.desc, category: cur.category });
             count += 1;
+            if (batch.length >= BATCH_SIZE) { flushBatch(batch); batch = []; }
           }
           inProg = false; cur = null;
         }
       });
       parser.on('error', reject);
-      parser.on('end', resolve);
+      parser.on('end', () => { if (batch.length) flushBatch(batch); resolve(); });
       const buf = fs.readFileSync(cachePath);
       const isGzip = buf[0] === 0x1f && buf[1] === 0x8b;
       const source = Readable.from(buf);
@@ -83,4 +107,4 @@ function parseXMLTVTime(str) {
   return new Date(`${yr}-${mo}-${dy}T${hr}:${mn}:${sc}${off}`);
 }
 
-module.exports = { queueGuideIndex };
+module.exports = { queueGuideIndex, queueStaleGuideIndexes };

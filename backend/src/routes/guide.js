@@ -44,6 +44,15 @@ router.get('/:playlist_id', async (req, res) => {
   const where = ['playlist_id = ?', 'enabled = 1'];
   const args = [playlistId];
 
+  const groupRows = db.prepare(`
+    SELECT grp AS name, COUNT(*) AS count
+    FROM channels
+    WHERE playlist_id = ? AND enabled = 1 AND grp IS NOT NULL AND grp != ''
+    GROUP BY grp
+    ORDER BY grp COLLATE NOCASE ASC
+  `).all(playlistId);
+
+
   if (group && group !== '__all__') {
     where.push('grp = ?');
     args.push(group);
@@ -132,6 +141,7 @@ router.get('/:playlist_id', async (req, res) => {
     total_pages: totalPages,
     count: channels.length,
     guide_index: sourceStatus,
+    groups: groupRows,
     channels: channels.map(ch => ({
       id: ch.id,
       name: ch.name,

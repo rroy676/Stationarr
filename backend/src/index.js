@@ -47,4 +47,6 @@ app.listen(PORT, () => {
   logger.info('system', 'Stationarr startup', { port: PORT, version });
   // Start background auto-refresh scheduler
   require('./scheduler').start();
+  // Queue existing stale guide indexes for cached EPG sources
+  require('./utils/guide-indexer').queueStaleGuideIndexes();
 });

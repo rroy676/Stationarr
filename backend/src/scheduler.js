@@ -47,7 +47,6 @@ async function refreshPlaylist(pl) {
       db.prepare("UPDATE playlists SET last_refreshed=datetime('now'), updated_at=datetime('now') WHERE id=?").run(pl.id);
     })();
 
-    queueGuideIndex(src.id, cachePath);
 
     console.log(`[scheduler] Playlist "${pl.name}" refreshed — ${counts.importedLive}/${counts.totalEntries} live channels imported (${counts.skippedVodLike} VOD-like entries skipped)`);
     logger.info('scheduler','Playlist scheduled refresh success',{ playlist_id: pl.id, imported_live: counts.importedLive, total_entries: counts.totalEntries });
@@ -86,7 +85,6 @@ async function refreshEPGSource(src) {
       `).run(channels.length, programmeCount, cachePath, size, src.id);
     })();
 
-    queueGuideIndex(src.id, cachePath);
 
     console.log(`[scheduler] EPG source "${src.name}" refreshed — ${channels.length} channels, ${programmeCount} programmes, ${(size/1024/1024).toFixed(1)} MB`);
     logger.info('epg','EPG source fetch success',{ source_id: src.id, channels: channels.length, programmes: programmeCount });
