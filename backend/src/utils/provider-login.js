@@ -15,6 +15,13 @@ function buildPlayerApiUrl(server, username, password, action) {
   return `${base}/player_api.php?${qs.toString()}`;
 }
 
+function buildXtreamLiveStreamUrl(server, username, password, streamId, extension = 'ts') {
+  const base = normalizeBase(server);
+  const safeExtension = String(extension || 'ts').replace(/^\./, '') || 'ts';
+  if (!base || !username || !password || !streamId) return '';
+  return `${base}/live/${encodeURIComponent(username)}/${encodeURIComponent(password)}/${encodeURIComponent(streamId)}.${safeExtension}`;
+}
+
 async function fetchJson(url) {
   const r = await fetch(url, { timeout: 30000, follow: 10, compress: true });
   if (!r.ok) throw buildHttpStatusError(r.status);
@@ -36,7 +43,9 @@ async function fetchXtreamChannels({ source_server, source_username, source_pass
   const catMap = new Map((Array.isArray(categories) ? categories : []).map(c => [String(c.category_id), c.category_name || 'Other']));
   const channelRows = (Array.isArray(streams) ? streams : []).map((s, idx) => ({
     name: s.name || s.stream_display_name || `Channel ${idx + 1}`,
-    url: s.stream_url || s.direct_source || '',
+    url: s.stream_url
+      || s.direct_source
+      || buildXtreamLiveStreamUrl(source_server, source_username, source_password, s.stream_id, 'ts'),
     duration: -1,
     tvg_id: s.epg_channel_id || '',
     tvg_name: s.name || '',
@@ -49,4 +58,4 @@ async function fetchXtreamChannels({ source_server, source_username, source_pass
   return { authUrl, channels: channelRows };
 }
 
-module.exports = { buildPlayerApiUrl, fetchXtreamChannels };
+module.exports = { buildPlayerApiUrl, buildXtreamLiveStreamUrl, fetchXtreamChannels };
