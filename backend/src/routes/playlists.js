@@ -6,6 +6,7 @@ const { parseM3U } = require('../utils/m3u');
 const { buildHttpStatusError, getPlaylistFetchErrorMessage } = require('../utils/http-errors');
 const fetch   = require('node-fetch');
 const logger = require('../logger');
+const { buildPlayerApiUrl, fetchXtreamChannels } = require('../utils/provider-login');
 
 router.use(requireAuth);
 
@@ -14,10 +15,9 @@ function genXtreamCreds() {
 }
 
 function buildSourceUrl(body) {
-  // Build M3U URL from provider credentials if source_type is 'xtream'
+  // Provider login uses Xtream player_api endpoint
   if (body.source_type === 'xtream' && body.source_server) {
-    const base = body.source_server.replace(/\/$/, '');
-    return `${base}/get.php?username=${encodeURIComponent(body.source_username || '')}&password=${encodeURIComponent(body.source_password || '')}&type=m3u_plus&output=ts`;
+    return buildPlayerApiUrl(body.source_server, body.source_username, body.source_password);
   }
   return body.source_url || null;
 }
@@ -121,8 +121,26 @@ router.post('/:id/import', async (req, res) => {
     // Build URL from request body (may include provider credentials)
     let url = req.body.url;
     if (req.body.source_type === 'xtream' && req.body.source_server) {
-      const base = req.body.source_server.replace(/\/$/, '');
-      url = `${base}/get.php?username=${encodeURIComponent(req.body.source_username || '')}&password=${encodeURIComponent(req.body.source_password || '')}&type=m3u_plus&output=ts`;
+      try {
+        const { authUrl, channels } = await fetchXtreamChannels(req.body);
+        const insert = db.prepare(`
+          INSERT INTO channels (playlist_id, name, url, duration, tvg_id, tvg_name, tvg_logo, grp, epg_id, enabled, ord)
+          VALUES (@playlist_id, @name, @url, @duration, @tvg_id, @tvg_name, @tvg_logo, @grp, @epg_id, @enabled, @ord)
+        `);
+
+        db.transaction((chs) => {
+          db.prepare('DELETE FROM channels WHERE playlist_id = ?').run(pl.id);
+          chs.forEach((c, i) => insert.run({ ...c, playlist_id: pl.id, ord: i }));
+          db.prepare("UPDATE playlists SET source_url=?, source_type=?, source_server=?, source_username=?, source_password=?, updated_at=datetime('now'), last_refreshed=datetime('now') WHERE id=?")
+            .run(authUrl, 'xtream', req.body.source_server || null, req.body.source_username || null, req.body.source_password || null, pl.id);
+        })(channels);
+
+        logger.info('playlist', 'Provider login import success', { playlist_id: pl.id, imported: channels.length });
+        return res.json({ imported: channels.length, import_summary: { total_entries: channels.length, imported_live: channels.length, skipped_vod_like: 0, include_vod_like: false } });
+      } catch (e) {
+        logger.error('playlist', 'Provider login import failed', { playlist_id: pl.id, source_type: 'xtream', error: e?.message || String(e) });
+        return res.status(502).json({ error: getPlaylistFetchErrorMessage(e, 'Could not fetch provider API:') });
+      }
     }
     if (!url) return res.status(400).json({ error: 'content, url, or provider credentials required' });
 
