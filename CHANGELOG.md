@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.1.1 - Provider Login and Refresh Fixes
+
+### Fixed
+
+- Fixed Provider Login using the M3U `/get.php` URL instead of the Xtream Codes `/player_api.php` endpoint.
+- Fixed Provider Login import for providers that support Xtream Codes API but do not expose M3U playlists through `/get.php`.
+- Fixed Provider Login imports where `get_live_streams` returns `stream_id` without a direct `stream_url`.
+- Fixed scheduled refresh for Provider Login playlists so it uses the Xtream API flow instead of the M3U fetch flow.
+- Fixed `Refresh now` frontend error where the UI could call a missing `refresh()` API helper.
+- Fixed manual playlist and EPG refresh error handling so failures return clearer messages.
+- Fixed reverse-proxy deployments showing `ERR_ERL_UNEXPECTED_X_FORWARDED_FOR` when `TRUST_PROXY` is enabled.
+
+### Improved
+
+- Provider Login now builds playable live stream URLs from `stream_id` when needed.
+- Provider Login preview now shows the `/player_api.php` endpoint format.
+- Added opt-in `TRUST_PROXY` environment variable support for reverse-proxy deployments.
+- Improved refresh logging and URL redaction to avoid exposing sensitive provider URLs or credentials.
+- Preserved existing direct M3U URL imports and file imports.
+
 ## v1.1.0 - Large Playlist Performance
 
 ### Added
