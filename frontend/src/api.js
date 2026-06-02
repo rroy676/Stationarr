@@ -79,6 +79,7 @@ export const playlists = {
   remove:      (id)       => del(`/playlists/${id}`),
   regenXtream: (id)       => post(`/playlists/${id}/regen-xtream`),
   import: (id, body) => post(`/playlists/${id}/import`, body),
+  refresh: (id)       => post(`/playlists/${id}/refresh`),
 };
 
 export const channels = {

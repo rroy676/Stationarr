@@ -8,6 +8,11 @@ const logger = require('./logger');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
+const trustProxy = String(process.env.TRUST_PROXY || '').toLowerCase();
+
+if (trustProxy === 'true' || trustProxy === '1') {
+  app.set('trust proxy', 1);
+}
 
 app.use(cors({ origin: process.env.NODE_ENV === 'production' ? false : '*' }));
 app.use(express.json({ limit: '20mb' }));

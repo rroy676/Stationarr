@@ -10,18 +10,15 @@ const { parseM3U }  = require('./utils/m3u');
 const { parseXMLTVBuffer } = require('./utils/xmltv');
 const { saveEPGCache } = require('./utils/xmltv-merge');
 const { countProgrammeEntriesFromBuffer } = require('./utils/xmltv-programme-count');
-const { buildHttpStatusError, getPlaylistFetchErrorMessage } = require('./utils/http-errors');
+const { buildHttpStatusError, getPlaylistFetchErrorMessage, redactSensitiveUrls } = require('./utils/http-errors');
 const logger = require('./logger');
 const { queueGuideIndex } = require('./utils/guide-indexer');
 const { fetchXtreamChannels } = require('./utils/provider-login');
 
 const DATA_DIR    = process.env.DATA_DIR || './data';
 const CHECK_EVERY = 15 * 60 * 1000; // 15 minutes
+
 function buildM3UUrl(pl) {
-  if (pl.source_type === 'xtream' && pl.source_server && pl.source_username && pl.source_password) {
-    const base = pl.source_server.replace(/\/$/, '');
-    return `${base}/get.php?username=${encodeURIComponent(pl.source_username)}&password=${encodeURIComponent(pl.source_password)}&type=m3u_plus&output=ts`;
-  }
   return pl.source_url || null;
 }
 
@@ -30,13 +27,23 @@ async function refreshPlaylist(pl) {
   if (!url && pl.source_type !== 'xtream') return;
 
   console.log(`[scheduler] Refreshing playlist "${pl.name}" (id=${pl.id})`);
-  logger.info('scheduler','Playlist scheduled refresh started',{ playlist_id: pl.id, playlist_name: pl.name });
+  logger.info('scheduler', 'Playlist scheduled refresh started', {
+    playlist_id: pl.id,
+    playlist_name: pl.name,
+    source_type: pl.source_type || 'url',
+  });
+
   try {
     let channels;
     let counts;
-    if (pl.source_type === 'xtream' && pl.source_server && pl.source_username) {
+
+    if (pl.source_type === 'xtream' && pl.source_server && pl.source_username && pl.source_password) {
       channels = (await fetchXtreamChannels(pl)).channels;
-      counts = { importedLive: channels.length, totalEntries: channels.length, skippedVodLike: 0 };
+      counts = {
+        importedLive: channels.length,
+        totalEntries: channels.length,
+        skippedVodLike: 0,
+      };
     } else {
       const r = await fetch(url, { timeout: 30000, follow: 10, compress: true });
       if (!r.ok) throw buildHttpStatusError(r.status);
@@ -57,16 +64,39 @@ async function refreshPlaylist(pl) {
       db.prepare("UPDATE playlists SET last_refreshed=datetime('now'), updated_at=datetime('now') WHERE id=?").run(pl.id);
     })();
 
-
     console.log(`[scheduler] Playlist "${pl.name}" refreshed — ${counts.importedLive}/${counts.totalEntries} live channels imported (${counts.skippedVodLike} VOD-like entries skipped)`);
-    logger.info('scheduler','Playlist scheduled refresh success',{ playlist_id: pl.id, imported_live: counts.importedLive, total_entries: counts.totalEntries });
+    logger.info('scheduler', 'Playlist scheduled refresh success', {
+      playlist_id: pl.id,
+      imported_live: counts.importedLive,
+      total_entries: counts.totalEntries,
+      source_type: pl.source_type || 'url',
+    });
   } catch (e) {
-    console.error(`[scheduler] Failed to refresh playlist "${pl.name}":`, getPlaylistFetchErrorMessage(e, 'Playlist fetch failed:'));
-    if (e && Number(e.status) === 451) logger.warn('playlist','HTTP 451 playlist fetch warning',{ playlist_id: pl.id, playlist_name: pl.name });
-    logger.error('scheduler','Playlist scheduled refresh failure',{ playlist_id: pl.id, source_type: pl.source_type || 'url', error: e?.message || String(e) });
-    if (e && e.message) {
-      console.error(`[scheduler] Technical fetch error for playlist "${pl.name}":`, e.message);
+    const safeMessage = redactSensitiveUrls(e?.message || String(e));
+
+    console.error(
+      `[scheduler] Failed to refresh playlist "${pl.name}":`,
+      getPlaylistFetchErrorMessage(e, 'Playlist fetch failed:')
+    );
+
+    if (e && Number(e.httpStatus) === 451) {
+      logger.warn('playlist', 'HTTP 451 playlist fetch warning', {
+        playlist_id: pl.id,
+        playlist_name: pl.name,
+      });
     }
+
+    logger.error('scheduler', 'Playlist scheduled refresh failure', {
+      playlist_id: pl.id,
+      source_type: pl.source_type || 'url',
+      error: safeMessage,
+    });
+
+    if (e && e.message) {
+      console.error(`[scheduler] Technical fetch error for playlist "${pl.name}":`, safeMessage);
+    }
+
+    throw e;
   }
 }
 
@@ -74,16 +104,21 @@ async function refreshEPGSource(src) {
   if (!src.url) return;
 
   console.log(`[scheduler] Refreshing EPG source "${src.name}" (id=${src.id})`);
-  logger.info('scheduler','EPG source scheduled refresh started',{ source_id: src.id, source_name: src.name });
+  logger.info('scheduler', 'EPG source scheduled refresh started', {
+    source_id: src.id,
+    source_name: src.name,
+  });
+
   try {
     const r = await fetch(src.url, { timeout: 60000, follow: 10, compress: true });
-    if (!r.ok) throw new Error('HTTP ' + r.status);
+    if (!r.ok) throw buildHttpStatusError(r.status);
     const buf = await r.buffer();
     const channels = await parseXMLTVBuffer(buf);
     const { cachePath, size } = saveEPGCache(DATA_DIR, src.id, buf);
     const programmeCount = countProgrammeEntriesFromBuffer(buf);
 
     const insert = db.prepare('INSERT INTO epg_channels (source_id, tvg_id, name, icon) VALUES (?,?,?,?)');
+
     db.transaction(() => {
       db.prepare('DELETE FROM epg_channels WHERE source_id = ?').run(src.id);
       channels.forEach(c => insert.run(src.id, c.id, c.name, c.icon || ''));
@@ -95,12 +130,24 @@ async function refreshEPGSource(src) {
       `).run(channels.length, programmeCount, cachePath, size, src.id);
     })();
 
+    queueGuideIndex(src.id, cachePath);
 
-    console.log(`[scheduler] EPG source "${src.name}" refreshed — ${channels.length} channels, ${programmeCount} programmes, ${(size/1024/1024).toFixed(1)} MB`);
-    logger.info('epg','EPG source fetch success',{ source_id: src.id, channels: channels.length, programmes: programmeCount });
+    console.log(`[scheduler] EPG source "${src.name}" refreshed — ${channels.length} channels, ${programmeCount} programmes, ${(size / 1024 / 1024).toFixed(1)} MB`);
+    logger.info('epg', 'EPG source fetch success', {
+      source_id: src.id,
+      channels: channels.length,
+      programmes: programmeCount,
+    });
   } catch (e) {
-    console.error(`[scheduler] Failed to refresh EPG source "${src.name}":`, e.message);
-    logger.error('epg','EPG source fetch failure',{ source_id: src.id, error: e?.message || String(e) });
+    const safeMessage = redactSensitiveUrls(e?.message || String(e));
+
+    console.error(`[scheduler] Failed to refresh EPG source "${src.name}":`, safeMessage);
+    logger.error('epg', 'EPG source fetch failure', {
+      source_id: src.id,
+      error: safeMessage,
+    });
+
+    throw e;
   }
 }
 
@@ -119,7 +166,11 @@ async function runCheck() {
 
   for (const pl of playlists) {
     if (isDue(pl.last_refreshed, pl.refresh_interval || 24)) {
-      await refreshPlaylist(pl);
+      try {
+        await refreshPlaylist(pl);
+      } catch {
+        // refreshPlaylist already logs a sanitized failure; keep scheduler loop alive.
+      }
     }
   }
 
@@ -130,7 +181,11 @@ async function runCheck() {
 
   for (const src of sources) {
     if (isDue(src.last_refreshed, src.refresh_interval || 24)) {
-      await refreshEPGSource(src);
+      try {
+        await refreshEPGSource(src);
+      } catch {
+        // refreshEPGSource already logs a sanitized failure; keep scheduler loop alive.
+      }
     }
   }
 }
