@@ -247,6 +247,8 @@ sudo ln -s /etc/nginx/sites-available/stationarr.conf /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
+When Stationarr is deployed behind a trusted reverse proxy that sends `X-Forwarded-For`, set `TRUST_PROXY=true` (or `TRUST_PROXY=1`). This trusts exactly one proxy hop for Express rate-limit/IP handling. Leave it unset or `false` for direct/non-proxy deployments.
+
 ---
 
 ## Environment variables
@@ -259,6 +261,7 @@ sudo nginx -t && sudo systemctl reload nginx
 | `DATA_DIR` | `./data` | Directory for SQLite DB and EPG cache |
 | `BASE_URL` | `http://localhost:3000` | Public base URL — used in hosted playlist links |
 | `REGISTRATION_OPEN` | `true` | Set to `false` to disable new user signups after setup |
+| `TRUST_PROXY` | `false` | Set to `true` or `1` only when Stationarr is behind one trusted reverse proxy that sends `X-Forwarded-For` |
 | `SCRAPER_URL` | `http://epg:3000` | URL of the iptv-org/epg sidecar container |
 | `SCRAPER_CHANNELS_PATH` | `/app/data/scraper/channels.xml` | Path to channels.xml shared with scraper |
 

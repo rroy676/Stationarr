@@ -7,16 +7,21 @@ function buildHttpStatusError(status) {
   return err;
 }
 
+function redactSensitiveUrls(message) {
+  return String(message || 'Unknown error').replace(/https?:\/\/[^\s)]+/gi, '[redacted URL]');
+}
+
 function getPlaylistFetchErrorMessage(err, prefix) {
   const basePrefix = prefix || 'Could not fetch URL:';
   if (err && err.httpStatus === 451) {
     return `${basePrefix} ${HTTP_451_MESSAGE}`;
   }
-  return `${basePrefix} ${(err && err.message) || 'Unknown error'}`;
+  return `${basePrefix} ${redactSensitiveUrls((err && err.message) || 'Unknown error')}`;
 }
 
 module.exports = {
   HTTP_451_MESSAGE,
   buildHttpStatusError,
   getPlaylistFetchErrorMessage,
+  redactSensitiveUrls,
 };

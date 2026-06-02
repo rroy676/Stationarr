@@ -10,6 +10,7 @@ const path    = require('path');
 const fs      = require('fs');
 const logger  = require('../logger');
 const { queueGuideIndex } = require('../utils/guide-indexer');
+const { redactSensitiveUrls } = require('../utils/http-errors');
 
 const DATA_DIR = process.env.DATA_DIR || './data';
 
@@ -172,8 +173,9 @@ router.post('/:id/fetch', async (req, res) => {
   } catch (e) {
     // Clean up tmp file on error
     try { require('fs').unlinkSync(tmpPath); } catch {}
-    logger.error('epg', 'Manual EPG source fetch failure', { source_id: src.id, error: e?.message || String(e) });
-    res.status(502).json({ error: 'Fetch failed: ' + e.message });
+    const safeMessage = redactSensitiveUrls(e?.message || String(e));
+    logger.error('epg', 'Manual EPG source fetch failure', { source_id: src.id, error: safeMessage });
+    res.status(502).json({ error: 'Fetch failed: ' + safeMessage });
   }
 });
 
@@ -211,6 +213,7 @@ router.delete('/:id/cache', (req, res) => {
 router.post('/:id/refresh', async (req, res) => {
   const src = db.prepare('SELECT * FROM epg_sources WHERE id=? AND user_id=?').get(req.params.id, req.user.id);
   if (!src) return res.status(404).json({ error: 'Not found' });
+  if (!src.url) return res.status(400).json({ error: 'Source has no URL to refresh from' });
   logger.info('epg', 'Manual EPG source refresh started', { source_id: src.id, source_name: src.name });
   try {
     await require('../scheduler').refreshEPGSource(src);
@@ -218,8 +221,9 @@ router.post('/:id/refresh', async (req, res) => {
     logger.info('epg', 'Manual EPG source refresh success', { source_id: src.id, channels: updated?.channel_count || 0, programmes: updated?.programme_count || 0 });
     res.json(updated);
   } catch (e) {
-    logger.error('epg', 'Manual EPG source refresh failure', { source_id: src.id, error: e?.message || String(e) });
-    res.status(502).json({ error: e.message });
+    const safeMessage = redactSensitiveUrls(e?.message || String(e));
+    logger.error('epg', 'Manual EPG source refresh failure', { source_id: src.id, error: safeMessage });
+    res.status(502).json({ error: 'EPG source refresh failed: ' + safeMessage });
   }
 });
 

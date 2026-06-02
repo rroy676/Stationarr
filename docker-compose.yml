@@ -17,6 +17,7 @@ services:
       - DATA_DIR=/app/data
       - BASE_URL=${BASE_URL:-http://localhost:3000}
       - REGISTRATION_OPEN=${REGISTRATION_OPEN:-true}
+      - TRUST_PROXY=${TRUST_PROXY:-false}
       - SCRAPER_URL=http://stationarr-epg:3000
       # Must stay under /app/data for Stationarr; do not point to /epg/public
       - SCRAPER_CHANNELS_PATH=/app/data/scraper/channels.xml
