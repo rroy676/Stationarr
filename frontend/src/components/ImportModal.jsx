@@ -144,7 +144,7 @@ export default function ImportModal({ playlistId, playlistName, allPlaylists = [
                 </div>
               </div>
               <div style={{ background: 'var(--surface2)', borderRadius: 6, padding: '8px 12px', fontSize: 11, color: 'var(--muted)', wordBreak: 'break-all' }}>
-                {server ? `${server.replace(/\/$/, '')}/get.php?username=${username || '…'}&password=***&type=m3u_plus` : 'Enter server above to see URL preview'}
+                {server ? `${server.replace(/\/$/, '')}/player_api.php?username=${username || '…'}&password=***` : 'Enter server above to see URL preview'}
               </div>
               <button type="submit" className="btn btn-primary" disabled={loading} style={{ justifyContent: 'center' }}>
                 {loading ? 'Importing…' : 'Connect & import'}

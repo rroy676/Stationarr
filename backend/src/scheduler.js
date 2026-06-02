@@ -13,6 +13,7 @@ const { countProgrammeEntriesFromBuffer } = require('./utils/xmltv-programme-cou
 const { buildHttpStatusError, getPlaylistFetchErrorMessage } = require('./utils/http-errors');
 const logger = require('./logger');
 const { queueGuideIndex } = require('./utils/guide-indexer');
+const { fetchXtreamChannels } = require('./utils/provider-login');
 
 const DATA_DIR    = process.env.DATA_DIR || './data';
 const CHECK_EVERY = 15 * 60 * 1000; // 15 minutes
@@ -26,15 +27,24 @@ function buildM3UUrl(pl) {
 
 async function refreshPlaylist(pl) {
   const url = buildM3UUrl(pl);
-  if (!url) return;
+  if (!url && pl.source_type !== 'xtream') return;
 
   console.log(`[scheduler] Refreshing playlist "${pl.name}" (id=${pl.id})`);
   logger.info('scheduler','Playlist scheduled refresh started',{ playlist_id: pl.id, playlist_name: pl.name });
   try {
-    const r = await fetch(url, { timeout: 30000, follow: 10, compress: true });
-    if (!r.ok) throw buildHttpStatusError(r.status);
-    const text = await r.text();
-    const { channels, counts } = parseM3U(text);
+    let channels;
+    let counts;
+    if (pl.source_type === 'xtream' && pl.source_server && pl.source_username) {
+      channels = (await fetchXtreamChannels(pl)).channels;
+      counts = { importedLive: channels.length, totalEntries: channels.length, skippedVodLike: 0 };
+    } else {
+      const r = await fetch(url, { timeout: 30000, follow: 10, compress: true });
+      if (!r.ok) throw buildHttpStatusError(r.status);
+      const text = await r.text();
+      const parsed = parseM3U(text);
+      channels = parsed.channels;
+      counts = parsed.counts;
+    }
 
     const insert = db.prepare(`
       INSERT INTO channels (playlist_id, name, url, duration, tvg_id, tvg_name, tvg_logo, grp, epg_id, enabled, ord)
@@ -53,7 +63,7 @@ async function refreshPlaylist(pl) {
   } catch (e) {
     console.error(`[scheduler] Failed to refresh playlist "${pl.name}":`, getPlaylistFetchErrorMessage(e, 'Playlist fetch failed:'));
     if (e && Number(e.status) === 451) logger.warn('playlist','HTTP 451 playlist fetch warning',{ playlist_id: pl.id, playlist_name: pl.name });
-    logger.error('scheduler','Playlist scheduled refresh failure',{ playlist_id: pl.id, error: e?.message || String(e) });
+    logger.error('scheduler','Playlist scheduled refresh failure',{ playlist_id: pl.id, source_type: pl.source_type || 'url', error: e?.message || String(e) });
     if (e && e.message) {
       console.error(`[scheduler] Technical fetch error for playlist "${pl.name}":`, e.message);
     }
