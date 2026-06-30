@@ -1,5 +1,23 @@
 # Changelog
 
+## Stationarr v1.2.0
+
+### Added
+- Added a Combined M3U URL so users can use one playlist URL containing enabled channels from all playlists.
+- Added a dedicated user-level combined playlist token.
+- Added a Regenerate token button for Combined M3U URLs.
+- Regenerating the token invalidates old Combined M3U URLs.
+- Added documentation for the combined playlist endpoint and token regeneration.
+
+### Changed
+- Combined M3U access now uses a separate token instead of reusing individual playlist slugs.
+
+### Validation
+- Confirmed Combined M3U appears in the UI.
+- Confirmed Combined M3U uses `/api/serve/combined/:token/playlist.m3u`.
+- Confirmed token regeneration works.
+- Confirmed old token is invalidated after regeneration.
+
 ## Stationarr v1.1.2
 
 ### Fixed
