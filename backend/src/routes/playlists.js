@@ -26,8 +26,9 @@ function buildSourceUrl(body) {
 // GET /api/playlists
 router.get('/', (req, res) => {
   const rows = db.prepare(`
-    SELECT p.*, COUNT(c.id) as channel_count
+    SELECT p.*, u.combined_slug, COUNT(c.id) as channel_count
     FROM playlists p
+    JOIN users u ON u.id = p.user_id
     LEFT JOIN channels c ON c.playlist_id = p.id
     WHERE p.user_id = ?
     GROUP BY p.id
@@ -54,12 +55,22 @@ router.post('/', (req, res) => {
     req.body.source_password || null,
     xtream_user, xtream_pass
   );
-  res.status(201).json(db.prepare('SELECT * FROM playlists WHERE id = ?').get(result.lastInsertRowid));
+  res.status(201).json(db.prepare(`
+    SELECT p.*, u.combined_slug
+    FROM playlists p
+    JOIN users u ON u.id = p.user_id
+    WHERE p.id = ?
+  `).get(result.lastInsertRowid));
 });
 
 // GET /api/playlists/:id
 router.get('/:id', (req, res) => {
-  const pl = db.prepare('SELECT * FROM playlists WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
+  const pl = db.prepare(`
+    SELECT p.*, u.combined_slug
+    FROM playlists p
+    JOIN users u ON u.id = p.user_id
+    WHERE p.id = ? AND p.user_id = ?
+  `).get(req.params.id, req.user.id);
   if (!pl) return res.status(404).json({ error: 'Not found' });
   res.json(pl);
 });
@@ -89,7 +100,12 @@ router.put('/:id', (req, res) => {
     WHERE id=?
   `).run(name, source_url, source_type, source_server, source_username, source_password, auto_refresh, refresh_interval, pl.id);
 
-  res.json(db.prepare('SELECT * FROM playlists WHERE id = ?').get(pl.id));
+  res.json(db.prepare(`
+    SELECT p.*, u.combined_slug
+    FROM playlists p
+    JOIN users u ON u.id = p.user_id
+    WHERE p.id = ?
+  `).get(pl.id));
 });
 
 // POST /api/playlists/:id/regen-xtream
@@ -99,7 +115,12 @@ router.post('/:id/regen-xtream', (req, res) => {
   const { xtream_user, xtream_pass } = genXtreamCreds();
   db.prepare("UPDATE playlists SET xtream_user=?, xtream_pass=?, updated_at=datetime('now') WHERE id=?")
     .run(xtream_user, xtream_pass, pl.id);
-  res.json(db.prepare('SELECT * FROM playlists WHERE id = ?').get(pl.id));
+  res.json(db.prepare(`
+    SELECT p.*, u.combined_slug
+    FROM playlists p
+    JOIN users u ON u.id = p.user_id
+    WHERE p.id = ?
+  `).get(pl.id));
 });
 
 // DELETE /api/playlists/:id
@@ -274,7 +295,12 @@ router.post('/:id/clone', (req, res) => {
   })();
 
   res.status(201).json({
-    playlist: db.prepare('SELECT * FROM playlists WHERE id = ?').get(newPl.lastInsertRowid),
+    playlist: db.prepare(`
+      SELECT p.*, u.combined_slug
+      FROM playlists p
+      JOIN users u ON u.id = p.user_id
+      WHERE p.id = ?
+    `).get(newPl.lastInsertRowid),
     channel_count: channels.length,
   });
 });
