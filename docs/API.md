@@ -156,13 +156,13 @@ Automatically match EPG IDs (and optionally logos) to channels in a playlist by 
 
 ## Public Serve Endpoints (no auth)
 
-These endpoints are publicly accessible using the playlist's `slug`. Treat slugs as secrets.
+These endpoints are publicly accessible using either a playlist `slug` or the dedicated combined playlist `token`. Treat slugs and tokens as secrets.
 
 ### GET /serve/:slug/playlist.m3u
 Returns the playlist as an M3U file, including only enabled channels.
 
-### GET /serve/:slug/combined.m3u
-Returns one combined M3U file containing enabled channels from all playlists owned by the same user as the provided slug. Playlists follow the dashboard order, and channels keep each playlist's channel order.
+### GET /serve/combined/:token/playlist.m3u
+Returns one combined M3U file containing enabled channels from all playlists owned by the user that owns the dedicated combined token. This route does not accept individual playlist slugs. Playlists follow the dashboard order, and channels keep each playlist's channel order.
 
 ### GET /serve/:slug/epg.xml
 Returns a minimal XMLTV file listing the channel metadata for all mapped EPG IDs.
@@ -176,7 +176,6 @@ Returns JSON metadata about the playlist — useful for displaying in players.
   "updated_at": "2024-10-01T12:00:00",
   "channel_count": 312,
   "m3u_url": "http://yourhost/api/serve/abc123/playlist.m3u",
-  "combined_m3u_url": "http://yourhost/api/serve/abc123/combined.m3u",
   "epg_url": "http://yourhost/api/serve/abc123/epg.xml"
 }
 ```

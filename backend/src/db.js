@@ -111,6 +111,26 @@ db.exec(`
 `);
 
 // Runtime migrations — safely add columns to existing DBs
+
+// User-level share token for the global combined playlist URL.
+const userCols = db.prepare("PRAGMA table_info(users)").all().map(c => c.name);
+if (!userCols.includes('combined_slug')) {
+  db.exec("ALTER TABLE users ADD COLUMN combined_slug TEXT");
+}
+const crypto = require('crypto');
+const usersMissingCombinedSlug = db.prepare("SELECT id FROM users WHERE combined_slug IS NULL OR combined_slug = ''").all();
+const existingCombinedSlugs = new Set(db.prepare("SELECT combined_slug FROM users WHERE combined_slug IS NOT NULL AND combined_slug != ''").all().map(r => r.combined_slug));
+const updateCombinedSlug = db.prepare('UPDATE users SET combined_slug = ? WHERE id = ?');
+for (const user of usersMissingCombinedSlug) {
+  let slug;
+  do {
+    slug = crypto.randomBytes(12).toString('base64url');
+  } while (existingCombinedSlugs.has(slug));
+  existingCombinedSlugs.add(slug);
+  updateCombinedSlug.run(slug, user.id);
+}
+db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_combined_slug ON users(combined_slug)");
+
 const cols = db.prepare("PRAGMA table_info(playlists)").all().map(c => c.name);
 if (!cols.includes('xtream_user')) {
   db.exec("ALTER TABLE playlists ADD COLUMN xtream_user TEXT");

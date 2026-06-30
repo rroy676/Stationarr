@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { nanoid } = require('nanoid');
 const db = require('../db');
 const requireAuth = require('../middleware/auth');
 
@@ -10,6 +11,14 @@ function sign(user) {
     process.env.JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
   );
+}
+
+function generateCombinedSlug() {
+  let slug;
+  do {
+    slug = nanoid(16);
+  } while (db.prepare('SELECT id FROM users WHERE combined_slug = ?').get(slug));
+  return slug;
 }
 
 // POST /api/auth/register
@@ -32,8 +41,8 @@ router.post('/register', (req, res) => {
 
   try {
     const result = db
-      .prepare('INSERT INTO users (username, email, password, is_admin) VALUES (?,?,?,?)')
-      .run(username.trim(), email.trim().toLowerCase(), hash, isFirst ? 1 : 0);
+      .prepare('INSERT INTO users (username, email, password, is_admin, combined_slug) VALUES (?,?,?,?,?)')
+      .run(username.trim(), email.trim().toLowerCase(), hash, isFirst ? 1 : 0, generateCombinedSlug());
 
     const user = db.prepare('SELECT * FROM users WHERE id = ?').get(result.lastInsertRowid);
     res.status(201).json({ token: sign(user), user: { id: user.id, username: user.username, is_admin: user.is_admin } });
