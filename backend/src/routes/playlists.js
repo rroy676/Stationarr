@@ -7,6 +7,7 @@ const { buildHttpStatusError, getPlaylistFetchErrorMessage, redactSensitiveUrls 
 const fetch   = require('node-fetch');
 const logger = require('../logger');
 const { buildPlayerApiUrl, fetchXtreamChannels } = require('../utils/provider-login');
+const { importXtreamEPGForPlaylist, sanitizeXtreamEPGError } = require('../utils/xtream-epg');
 
 router.use(requireAuth);
 
@@ -135,8 +136,24 @@ router.post('/:id/import', async (req, res) => {
             .run(authUrl, 'xtream', req.body.source_server || null, req.body.source_username || null, req.body.source_password || null, pl.id);
         })(channels);
 
-        logger.info('playlist', 'Provider login import success', { playlist_id: pl.id, imported: channels.length });
-        return res.json({ imported: channels.length, import_summary: { total_entries: channels.length, imported_live: channels.length, skipped_vod_like: 0, include_vod_like: false } });
+        let epg_warning = null;
+        let epg_import = null;
+        try {
+          const updatedPlaylist = db.prepare('SELECT * FROM playlists WHERE id = ?').get(pl.id);
+          epg_import = await importXtreamEPGForPlaylist(updatedPlaylist);
+          logger.info('playlist', 'Provider login EPG import success', { playlist_id: pl.id, source_id: epg_import.source_id, channels: epg_import.loaded, programmes: epg_import.programme_count });
+        } catch (epgError) {
+          epg_warning = 'Provider playlist imported, but the provider EPG could not be imported.';
+          logger.warn('playlist', 'Provider login EPG import failed', { playlist_id: pl.id, error: sanitizeXtreamEPGError(epgError) });
+        }
+
+        logger.info('playlist', 'Provider login import success', { playlist_id: pl.id, imported: channels.length, epg_imported: !!epg_import });
+        return res.json({
+          imported: channels.length,
+          import_summary: { total_entries: channels.length, imported_live: channels.length, skipped_vod_like: 0, include_vod_like: false },
+          epg_import,
+          epg_warning,
+        });
       } catch (e) {
         logger.error('playlist', 'Provider login import failed', { playlist_id: pl.id, source_type: 'xtream', error: e?.message || String(e) });
         return res.status(502).json({ error: getPlaylistFetchErrorMessage(e, 'Could not fetch provider API:') });

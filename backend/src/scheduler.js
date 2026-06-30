@@ -14,6 +14,7 @@ const { buildHttpStatusError, getPlaylistFetchErrorMessage, redactSensitiveUrls 
 const logger = require('./logger');
 const { queueGuideIndex } = require('./utils/guide-indexer');
 const { fetchXtreamChannels } = require('./utils/provider-login');
+const { importXtreamEPGForPlaylist, sanitizeXtreamEPGError } = require('./utils/xtream-epg');
 
 const DATA_DIR    = process.env.DATA_DIR || './data';
 const CHECK_EVERY = 15 * 60 * 1000; // 15 minutes
@@ -63,6 +64,23 @@ async function refreshPlaylist(pl) {
       channels.forEach((c, i) => insert.run({ ...c, playlist_id: pl.id, ord: i }));
       db.prepare("UPDATE playlists SET last_refreshed=datetime('now'), updated_at=datetime('now') WHERE id=?").run(pl.id);
     })();
+
+    if (pl.source_type === 'xtream' && pl.source_server && pl.source_username && pl.source_password) {
+      try {
+        const epg = await importXtreamEPGForPlaylist(pl);
+        logger.info('scheduler', 'Provider login EPG refresh success', {
+          playlist_id: pl.id,
+          source_id: epg.source_id,
+          channels: epg.loaded,
+          programmes: epg.programme_count,
+        });
+      } catch (epgError) {
+        logger.warn('scheduler', 'Provider login EPG refresh failed', {
+          playlist_id: pl.id,
+          error: sanitizeXtreamEPGError(epgError),
+        });
+      }
+    }
 
     console.log(`[scheduler] Playlist "${pl.name}" refreshed — ${counts.importedLive}/${counts.totalEntries} live channels imported (${counts.skippedVodLike} VOD-like entries skipped)`);
     logger.info('scheduler', 'Playlist scheduled refresh success', {

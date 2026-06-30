@@ -58,4 +58,4 @@ async function fetchXtreamChannels({ source_server, source_username, source_pass
   return { authUrl, channels: channelRows };
 }
 
-module.exports = { buildPlayerApiUrl, buildXtreamLiveStreamUrl, fetchXtreamChannels };
+module.exports = { normalizeBase, buildPlayerApiUrl, buildXtreamLiveStreamUrl, fetchXtreamChannels };
