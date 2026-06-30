@@ -1,4 +1,4 @@
-FROM node:22-alpine3.23 AS frontend-builder
+FROM node:26-alpine3.23 AS frontend-builder
 WORKDIR /build/frontend
 RUN apk upgrade --no-cache
 COPY frontend/package*.json ./
@@ -8,13 +8,13 @@ RUN npm run build
 
 # Separate stage to compile native modules (better-sqlite3 needs python3/make/g++)
 # Build tools stay here and never reach the final image
-FROM node:22-alpine3.23 AS backend-builder
+FROM node:26-alpine3.23 AS backend-builder
 WORKDIR /app
 RUN apk add --no-cache python3 make g++
 COPY backend/package*.json ./
 RUN npm install --omit=dev
 
-FROM node:22-alpine3.23
+FROM node:26-alpine3.23
 WORKDIR /app
 
 # Upgrade Alpine packages + add docker-cli for optional EPG scraper feature
