@@ -7,6 +7,10 @@ on:
         description: 'Release version, without a leading v (example: 1.2.1)'
         required: true
         type: string
+      release_notes:
+        description: 'Release notes for the changelog and GitHub release body (strongly recommended)'
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -85,9 +89,52 @@ jobs:
             exit 1
           fi
 
+      - name: Update changelog and release notes
+        env:
+          RELEASE_NOTES: ${{ inputs.release_notes }}
+        run: |
+          VERSION='${{ steps.version.outputs.version }}'
+          RELEASE_DATE=$(date -u +%F)
+          export VERSION RELEASE_DATE
+
+          python - <<'PY'
+          import os
+          from pathlib import Path
+
+          version = os.environ['VERSION']
+          release_date = os.environ['RELEASE_DATE']
+          notes = os.environ.get('RELEASE_NOTES', '').strip()
+
+          if not notes:
+              notes = f'Stationarr v{version}'
+
+          section = f'## v{version} - {release_date}\n\n{notes}\n'
+          body = section
+
+          Path('release-body.md').write_text(body, encoding='utf-8')
+
+          changelog_path = Path('CHANGELOG.md')
+          if changelog_path.exists():
+              changelog = changelog_path.read_text(encoding='utf-8')
+          else:
+              changelog = '# Changelog\n'
+
+          if not changelog.startswith('# Changelog'):
+              changelog = '# Changelog\n\n' + changelog.lstrip()
+
+          lines = changelog.splitlines()
+          if lines and lines[0].strip() == '# Changelog':
+              rest = '\n'.join(lines[1:]).lstrip('\n')
+              changelog = '# Changelog\n\n' + section + ('\n' + rest if rest else '')
+          else:
+              changelog = '# Changelog\n\n' + section + '\n' + changelog.lstrip()
+
+          changelog_path.write_text(changelog.rstrip() + '\n', encoding='utf-8')
+          PY
+
       - name: Verify release changes
         run: |
-          allowed='^(package.json|package-lock.json|backend/package.json|backend/package-lock.json)$'
+          allowed='^(CHANGELOG.md|package.json|package-lock.json|backend/package.json|backend/package-lock.json)$'
           changed=$(git diff --name-only)
 
           if [ -z "$changed" ]; then
@@ -106,7 +153,7 @@ jobs:
       - name: Commit version bump
         run: |
           VERSION='${{ steps.version.outputs.version }}'
-          git add package.json backend/package.json
+          git add CHANGELOG.md package.json backend/package.json
           [ -f package-lock.json ] && git add package-lock.json
           [ -f backend/package-lock.json ] && git add backend/package-lock.json
           git commit --allow-empty -m "chore: release v$VERSION"
@@ -126,4 +173,4 @@ jobs:
           gh release create "$TAG" \
             --target main \
             --title "Stationarr $TAG" \
-            --notes "Stationarr $TAG"
+            --notes-file release-body.md
