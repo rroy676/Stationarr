@@ -140,6 +140,9 @@ The branding package also includes additional PNG sizes, SVG versions, horizonta
 ## Quick start — Docker (recommended)
 
 **Option A — Docker Hub (easiest):**
+
+The published `rroy676/stationarr` image supports both `linux/amd64` and `linux/arm64`.
+
 ```bash
 docker run -d \
   --name stationarr \
