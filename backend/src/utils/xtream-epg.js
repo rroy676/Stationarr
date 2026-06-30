@@ -19,13 +19,36 @@ function buildXtreamXmltvUrl(server, username, password) {
 }
 
 function getSourceName(playlist) {
-  return `${playlist.name} (Provider Login EPG)`;
+  return `${playlist.name} (Provider Login EPG #${playlist.id})`;
+}
+
+function getSourceSuffix(playlist) {
+  return `(Provider Login EPG #${playlist.id})`;
 }
 
 function ensureProviderEPGSource(playlist) {
   const name = getSourceName(playlist);
-  const existing = db.prepare('SELECT * FROM epg_sources WHERE user_id = ? AND name = ?').get(playlist.user_id, name);
-  if (existing) return existing;
+  const suffix = getSourceSuffix(playlist);
+
+  const stableExisting = db.prepare(`
+    SELECT * FROM epg_sources
+    WHERE user_id = ? AND name LIKE ?
+    ORDER BY id ASC
+    LIMIT 1
+  `).get(playlist.user_id, `% ${suffix}`);
+
+  const legacyName = `${playlist.name} (Provider Login EPG)`;
+  const legacyExisting = stableExisting || db.prepare('SELECT * FROM epg_sources WHERE user_id = ? AND name = ? ORDER BY id ASC LIMIT 1')
+    .get(playlist.user_id, legacyName);
+
+  const existing = stableExisting || legacyExisting;
+  if (existing) {
+    if (existing.name !== name || existing.url !== null || existing.refresh_interval !== (playlist.refresh_interval || 24)) {
+      db.prepare('UPDATE epg_sources SET name=?, url=NULL, refresh_interval=? WHERE id=?')
+        .run(name, playlist.refresh_interval || 24, existing.id);
+    }
+    return db.prepare('SELECT * FROM epg_sources WHERE id = ?').get(existing.id);
+  }
 
   const result = db.prepare('INSERT INTO epg_sources (user_id, name, url, auto_refresh, refresh_interval) VALUES (?,?,?,?,?)')
     .run(playlist.user_id, name, null, 0, playlist.refresh_interval || 24);
