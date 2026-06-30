@@ -123,6 +123,7 @@ The branding package also includes additional PNG sizes, SVG versions, horizonta
 
 ### Output
 - Hosted M3U URL per playlist — use directly in any IPTV player
+- Combined M3U URL — one player URL that includes enabled channels from all of your playlists
 - Hosted EPG URL — merged XMLTV from all mapped sources with timeshift applied, gzip compressed
 - Xtream Codes API (`player_api.php`, live stream redirect, `xmltv.php`)
 

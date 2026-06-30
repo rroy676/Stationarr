@@ -4,6 +4,27 @@ const { exportM3U } = require('../utils/m3u');
 const { mergeXMLTV, proxyEPG } = require('../utils/xmltv-merge');
 const logger = require('../logger');
 
+// GET /api/serve/:slug/combined.m3u
+// Uses any one playlist slug as the public share token, then exports all enabled
+// channels from every playlist owned by the same user.
+router.get('/:slug/combined.m3u', (req, res) => {
+  const pl = db.prepare('SELECT * FROM playlists WHERE slug = ?').get(req.params.slug);
+  if (!pl) return res.status(404).send('Not found');
+
+  const channels = db.prepare(`
+    SELECT c.*
+    FROM playlists p
+    JOIN channels c ON c.playlist_id = p.id
+    WHERE p.user_id = ? AND c.enabled = 1
+    ORDER BY p.created_at DESC, p.id DESC, c.ord ASC, c.id ASC
+  `).all(pl.user_id);
+
+  logger.info('playlist', 'Generated combined playlist served/exported', { user_id: pl.user_id, slug: pl.slug, channel_count: channels.length });
+  res.setHeader('Content-Type', 'audio/x-mpegurl; charset=utf-8');
+  res.setHeader('Content-Disposition', 'attachment; filename="stationarr-combined.m3u"');
+  res.send(exportM3U(channels));
+});
+
 // GET /api/serve/:slug/playlist.m3u
 router.get('/:slug/playlist.m3u', (req, res) => {
   const pl = db.prepare('SELECT * FROM playlists WHERE slug = ?').get(req.params.slug);
@@ -44,6 +65,7 @@ router.get('/:slug/info', (req, res) => {
     updated_at:    pl.updated_at,
     channel_count: count,
     m3u_url:       `${base}/api/serve/${pl.slug}/playlist.m3u`,
+    combined_m3u_url: `${base}/api/serve/${pl.slug}/combined.m3u`,
     epg_url:       `${base}/api/serve/${pl.slug}/epg.xml`,
   });
 });

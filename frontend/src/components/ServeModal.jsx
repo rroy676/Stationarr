@@ -22,6 +22,7 @@ export default function ServeModal({ playlist: initialPlaylist, onClose }) {
   const base = window.location.origin;
 
   const m3uUrl       = `${base}/api/serve/${playlist.slug}/playlist.m3u`;
+  const combinedM3uUrl = `${base}/api/serve/${playlist.slug}/combined.m3u`;
   const epgUrl       = `${base}/api/serve/${playlist.slug}/epg.xml`;
   const xtreamServer = base;
   const xtreamM3uUrl = `${base}/get.php?username=${playlist.xtream_user}&password=${playlist.xtream_pass}&type=m3u_plus`;
@@ -61,8 +62,9 @@ export default function ServeModal({ playlist: initialPlaylist, onClose }) {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <p style={{ fontWeight: 600, fontSize: 13 }}>Direct M3U</p>
-            <p className="text-xs text-muted">For players that accept a raw M3U URL</p>
+            <p className="text-xs text-muted">For players that accept a raw M3U URL. Use Combined M3U to include all of your playlists in one URL</p>
             <UrlRow label="M3U playlist" url={m3uUrl} copied={copied === 'm3u'} onCopy={() => copy(m3uUrl, 'm3u')} />
+            <UrlRow label="Combined M3U" url={combinedM3uUrl} copied={copied === 'combined-m3u'} onCopy={() => copy(combinedM3uUrl, 'combined-m3u')} />
             <UrlRow label="EPG (XMLTV)"  url={epgUrl} copied={copied === 'epg'} onCopy={() => copy(epgUrl, 'epg')} />
           </div>
 
