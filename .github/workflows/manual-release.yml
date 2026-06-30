@@ -1,0 +1,129 @@
+name: Manual Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version, without a leading v (example: 1.2.1)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: manual-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Create Stationarr release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Validate version input
+        id: version
+        run: |
+          VERSION='${{ inputs.version }}'
+
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid version: $VERSION"
+            echo "Version must use semantic version format x.y.z without a leading v, for example 1.2.1."
+            exit 1
+          fi
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Configure git user
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+      - name: Verify clean working tree
+        run: |
+          if ! git diff --quiet || ! git diff --cached --quiet; then
+            echo "Working tree has unexpected changes before release version updates."
+            git status --short
+            exit 1
+          fi
+
+      - name: Ensure tag does not exist
+        run: |
+          TAG='${{ steps.version.outputs.tag }}'
+
+          if git rev-parse --verify --quiet "$TAG" >/dev/null; then
+            echo "Tag already exists locally: $TAG"
+            exit 1
+          fi
+
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "Tag already exists on origin: $TAG"
+            exit 1
+          fi
+
+      - name: Update package versions
+        run: |
+          VERSION='${{ steps.version.outputs.version }}'
+
+          npm version "$VERSION" --no-git-tag-version --allow-same-version
+          npm --prefix backend version "$VERSION" --no-git-tag-version --allow-same-version
+
+          ROOT_VERSION=$(node -p "require('./package.json').version")
+          BACKEND_VERSION=$(node -p "require('./backend/package.json').version")
+
+          if [ "$ROOT_VERSION" != "$VERSION" ] || [ "$BACKEND_VERSION" != "$VERSION" ]; then
+            echo "Package version update failed."
+            echo "Expected version: $VERSION"
+            echo "Root package.json version: $ROOT_VERSION"
+            echo "Backend package.json version: $BACKEND_VERSION"
+            exit 1
+          fi
+
+      - name: Verify release changes
+        run: |
+          allowed='^(package.json|package-lock.json|backend/package.json|backend/package-lock.json)$'
+          changed=$(git diff --name-only)
+
+          if [ -z "$changed" ]; then
+            echo "Package versions already match the requested release version."
+            exit 0
+          fi
+
+          unexpected=$(echo "$changed" | grep -Ev "$allowed" || true)
+          if [ -n "$unexpected" ]; then
+            echo "Unexpected files changed during release version update:"
+            echo "$unexpected"
+            git status --short
+            exit 1
+          fi
+
+      - name: Commit version bump
+        run: |
+          VERSION='${{ steps.version.outputs.version }}'
+          git add package.json backend/package.json
+          [ -f package-lock.json ] && git add package-lock.json
+          [ -f backend/package-lock.json ] && git add backend/package-lock.json
+          git commit --allow-empty -m "chore: release v$VERSION"
+
+      - name: Push commit and tag
+        run: |
+          TAG='${{ steps.version.outputs.tag }}'
+          git tag "$TAG"
+          git push origin HEAD:main
+          git push origin "$TAG"
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG='${{ steps.version.outputs.tag }}'
+          gh release create "$TAG" \
+            --target main \
+            --title "Stationarr $TAG" \
+            --notes "Stationarr $TAG"
