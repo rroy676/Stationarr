@@ -15,6 +15,18 @@ function genXtreamCreds() {
   return { xtream_user: nanoid(12), xtream_pass: nanoid(16) };
 }
 
+function generateCombinedSlug() {
+  let slug;
+  do {
+    slug = nanoid(16);
+  } while (db.prepare('SELECT id FROM users WHERE combined_slug = ?').get(slug));
+  return slug;
+}
+
+function getBaseUrl(req) {
+  return process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
+}
+
 function buildSourceUrl(body) {
   // Provider login uses Xtream player_api endpoint
   if (body.source_type === 'xtream' && body.source_server) {
@@ -61,6 +73,18 @@ router.post('/', (req, res) => {
     JOIN users u ON u.id = p.user_id
     WHERE p.id = ?
   `).get(result.lastInsertRowid));
+});
+
+
+// POST /api/playlists/combined-token/regenerate
+router.post('/combined-token/regenerate', (req, res) => {
+  const combinedSlug = generateCombinedSlug();
+  db.prepare("UPDATE users SET combined_slug = ? WHERE id = ?").run(combinedSlug, req.user.id);
+
+  res.json({
+    combined_slug: combinedSlug,
+    combined_m3u_url: `${getBaseUrl(req)}/api/serve/combined/${combinedSlug}/playlist.m3u`,
+  });
 });
 
 // GET /api/playlists/:id

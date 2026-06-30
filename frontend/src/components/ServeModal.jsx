@@ -18,6 +18,7 @@ export default function ServeModal({ playlist: initialPlaylist, onClose }) {
   const [playlist, setPlaylist] = useState(initialPlaylist);
   const [copied,   setCopied]   = useState('');
   const [regen,    setRegen]    = useState(false);
+  const [regenCombined, setRegenCombined] = useState(false);
 
   const base = window.location.origin;
 
@@ -34,6 +35,20 @@ export default function ServeModal({ playlist: initialPlaylist, onClose }) {
       navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
     } else {
       fallbackCopy(text, done);
+    }
+  };
+
+  const regenCombinedToken = async () => {
+    if (!confirm('Regenerate Combined M3U token? Old Combined M3U URLs will stop working immediately.')) return;
+    setRegenCombined(true);
+    try {
+      const updated = await api.regenCombinedToken();
+      setPlaylist(current => ({ ...current, combined_slug: updated.combined_slug }));
+      toast('Combined M3U token regenerated', 'success');
+    } catch (e) {
+      toast(e.message, 'error');
+    } finally {
+      setRegenCombined(false);
     }
   };
 
@@ -65,7 +80,17 @@ export default function ServeModal({ playlist: initialPlaylist, onClose }) {
             <p className="text-xs text-muted">For players that accept a raw M3U URL. Use Combined M3U to include all of your playlists in one URL</p>
             <UrlRow label="M3U playlist" url={m3uUrl} copied={copied === 'm3u'} onCopy={() => copy(m3uUrl, 'm3u')} />
             {combinedM3uUrl && (
-              <UrlRow label="Combined M3U" url={combinedM3uUrl} copied={copied === 'combined-m3u'} onCopy={() => copy(combinedM3uUrl, 'combined-m3u')} />
+              <UrlRow
+                label="Combined M3U"
+                url={combinedM3uUrl}
+                copied={copied === 'combined-m3u'}
+                onCopy={() => copy(combinedM3uUrl, 'combined-m3u')}
+                action={
+                  <button className="btn btn-sm btn-danger" onClick={regenCombinedToken} disabled={regenCombined}>
+                    <RefreshCw size={12} /> {regenCombined ? 'Regenerating...' : 'Regenerate token'}
+                  </button>
+                }
+              />
             )}
             <UrlRow label="EPG (XMLTV)"  url={epgUrl} copied={copied === 'epg'} onCopy={() => copy(epgUrl, 'epg')} />
           </div>
@@ -130,10 +155,13 @@ function CredBox({ label, value, copyKey, copied, onCopy }) {
   );
 }
 
-function UrlRow({ label, url, copied, onCopy }) {
+function UrlRow({ label, url, copied, onCopy, action }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-      <span className="text-xs text-muted" style={{ fontWeight: 500 }}>{label}</span>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+        <span className="text-xs text-muted" style={{ fontWeight: 500 }}>{label}</span>
+        {action}
+      </div>
       <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
         <input className="input mono" value={url} readOnly style={{ flex: 1, fontSize: 11 }} onClick={e => e.target.select()} />
         <button className="btn btn-sm btn-icon" onClick={onCopy} title="Copy"><Copy size={13} /></button>
