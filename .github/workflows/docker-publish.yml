@@ -45,6 +45,21 @@ jobs:
             node -e "console.log('version=' + require('./package.json').version)" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Validate release version
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v*.*.* ]]; then
+            TAG_VERSION="${GITHUB_REF#refs/tags/v}"
+            PKG_VERSION=$(node -p "require('./package.json').version")
+
+            if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+              echo "Version mismatch:"
+              echo "Git tag version: $TAG_VERSION"
+              echo "package.json version: $PKG_VERSION"
+              echo "Update package.json before publishing the release."
+              exit 1
+            fi
+          fi
+
       - name: Docker metadata
         id: meta
         uses: docker/metadata-action@v6
