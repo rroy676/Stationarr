@@ -90,12 +90,14 @@ jobs:
           fi
 
       - name: Update changelog and release notes
-        env:
-          RELEASE_NOTES: ${{ inputs.release_notes }}
         run: |
           VERSION='${{ steps.version.outputs.version }}'
           RELEASE_DATE=$(date -u +%F)
           export VERSION RELEASE_DATE
+
+          cat > release-notes-input.md <<'RELEASE_NOTES_EOF'
+          ${{ inputs.release_notes }}
+          RELEASE_NOTES_EOF
 
           python - <<'PY'
           import os
@@ -103,15 +105,15 @@ jobs:
 
           version = os.environ['VERSION']
           release_date = os.environ['RELEASE_DATE']
-          notes = os.environ.get('RELEASE_NOTES', '').strip()
+          notes = Path('release-notes-input.md').read_text(encoding='utf-8')
 
-          if not notes:
-              notes = f'Stationarr v{version}'
+          if not notes.strip():
+              notes = f'Stationarr v{version}\n'
 
-          section = f'## v{version} - {release_date}\n\n{notes}\n'
-          body = section
+          notes = notes.rstrip('\n') + '\n'
+          section = f'## v{version} - {release_date}\n\n{notes}'
 
-          Path('release-body.md').write_text(body, encoding='utf-8')
+          Path('release-body.md').write_text(section, encoding='utf-8')
 
           changelog_path = Path('CHANGELOG.md')
           if changelog_path.exists():
@@ -131,6 +133,8 @@ jobs:
 
           changelog_path.write_text(changelog.rstrip() + '\n', encoding='utf-8')
           PY
+
+          rm release-notes-input.md
 
       - name: Verify release changes
         run: |
