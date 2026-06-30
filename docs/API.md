@@ -154,6 +154,22 @@ Automatically match EPG IDs (and optionally logos) to channels in a playlist by 
 
 ---
 
+
+### POST /playlists/combined-token/regenerate
+Regenerates the authenticated user's dedicated Combined M3U token. The previous Combined M3U URL stops working immediately because `/serve/combined/:token/playlist.m3u` only accepts the current `combined_slug` for that user.
+
+**Auth:** required
+
+**Response**
+```json
+{
+  "combined_slug": "newCombinedToken",
+  "combined_m3u_url": "http://yourhost/api/serve/combined/newCombinedToken/playlist.m3u"
+}
+```
+
+---
+
 ## Public Serve Endpoints (no auth)
 
 These endpoints are publicly accessible using either a playlist `slug` or the dedicated combined playlist `token`. Treat slugs and tokens as secrets.
@@ -162,7 +178,7 @@ These endpoints are publicly accessible using either a playlist `slug` or the de
 Returns the playlist as an M3U file, including only enabled channels.
 
 ### GET /serve/combined/:token/playlist.m3u
-Returns one combined M3U file containing enabled channels from all playlists owned by the user that owns the dedicated combined token. This route does not accept individual playlist slugs. Playlists follow the dashboard order, and channels keep each playlist's channel order.
+Returns one combined M3U file containing enabled channels from all playlists owned by the user that owns the dedicated combined token. This route does not accept individual playlist slugs. Playlists follow the dashboard order, and channels keep each playlist's channel order. Regenerating the user's combined token invalidates old Combined M3U URLs, which then return 404.
 
 ### GET /serve/:slug/epg.xml
 Returns a minimal XMLTV file listing the channel metadata for all mapped EPG IDs.

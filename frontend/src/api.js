@@ -78,6 +78,7 @@ export const playlists = {
   update: (id, body) => put(`/playlists/${id}`, body),
   remove:      (id)       => del(`/playlists/${id}`),
   regenXtream: (id)       => post(`/playlists/${id}/regen-xtream`),
+  regenCombinedToken: () => post('/playlists/combined-token/regenerate'),
   import: (id, body) => post(`/playlists/${id}/import`, body),
   refresh: (id)       => post(`/playlists/${id}/refresh`),
 };
