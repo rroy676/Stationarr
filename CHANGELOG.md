@@ -1,5 +1,20 @@
 # Changelog
 
+## Stationarr v1.1.2
+
+### Fixed
+- Added automatic Xtream Provider Login EPG discovery/import from provider XMLTV endpoints.
+- Provider EPG import failures no longer block playlist import or refresh.
+
+### Docker
+- Added multi-architecture Docker publishing.
+- Docker images now support linux/amd64 and linux/arm64.
+
+Images:
+- rroy676/stationarr:latest
+- rroy676/stationarr:1.1.2
+- rroy676/stationarr:v1.1.2
+
 ## v1.1.1 - Provider Login and Refresh Fixes
 
 ### Fixed
