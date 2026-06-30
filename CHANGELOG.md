@@ -2,7 +2,19 @@
 
 ## v1.2.2 - 2026-06-30
 
-### Fixed - Fixed app version reporting so `/api/health` and the Settings page show the correct release version. - Fixed a release packaging issue where the Docker image could contain newer app code while still reporting an older internal version.  ### Added - Added Docker build support for passing the release version into the app through `APP_VERSION`. - Added a release version guard so Docker releases fail if the Git tag and `package.json` version do not match. - Added a Manual Release workflow to automate version bumping, tagging, and GitHub release creation. - Added changelog support so release notes are recorded in `CHANGELOG.md`.  ### Changed - `/api/health` now reports `APP_VERSION` when set, with a fallback to the root `package.json` version for local development. - Future releases now have a safer flow to keep GitHub tags, Docker image versions, app health version, and the Settings page version aligned.
+### Fixed
+- Fixed app version reporting so `/api/health` and the Settings page show the correct release version.
+- Fixed a release packaging issue where the Docker image could contain newer app code while still reporting an older internal version.
+
+### Added
+- Added Docker build support for passing the release version into the app through `APP_VERSION`.
+- Added a release version guard so Docker releases fail if the Git tag and `package.json` version do not match.
+- Added a Manual Release workflow to automate version bumping, tagging, and GitHub release creation.
+- Added changelog support so release notes are recorded in `CHANGELOG.md`.
+
+### Changed
+- `/api/health` now reports `APP_VERSION` when set, with a fallback to the root `package.json` version for local development.
+- Future releases now have a safer flow to keep GitHub tags, Docker image versions, app health version, and the Settings page version aligned.
 
 ## v1.2.1
 
