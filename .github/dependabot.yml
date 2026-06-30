@@ -4,7 +4,7 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 1
     labels:
       - "dependencies"
       - "npm"
@@ -20,7 +20,7 @@ updates:
     directory: "/backend"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 1
     labels:
       - "dependencies"
       - "npm"
@@ -38,7 +38,7 @@ updates:
     directory: "/frontend"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 1
     labels:
       - "dependencies"
       - "npm"
@@ -56,18 +56,22 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 1
     labels:
       - "dependencies"
       - "github-actions"
     commit-message:
       prefix: "ci"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
 
   - package-ecosystem: "docker"
     directory: "/"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 1
     labels:
       - "dependencies"
       - "docker"
