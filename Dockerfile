@@ -15,6 +15,8 @@ COPY backend/package*.json ./
 RUN npm install --omit=dev
 
 FROM node:22-alpine3.23
+ARG APP_VERSION
+ENV APP_VERSION=$APP_VERSION
 WORKDIR /app
 
 # Upgrade Alpine packages + add docker-cli for optional EPG scraper feature
@@ -24,7 +26,7 @@ ENV DOCKER_API_VERSION=1.41
 # Copy pre-compiled node_modules — no build tools needed in final image
 COPY --from=backend-builder /app/node_modules ./node_modules
 COPY backend/src ./src
-COPY backend/package.json ./package.json
+COPY package.json ./package.json
 COPY --from=frontend-builder /build/public ./public
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh

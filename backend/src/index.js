@@ -2,9 +2,29 @@ require('dotenv').config();
 const express   = require('express');
 const cors      = require('cors');
 const path      = require('path');
+const fs        = require('fs');
 const rateLimit = require('express-rate-limit');
-const { version } = require(path.join(__dirname, '../package.json'));
 const logger = require('./logger');
+
+function getPackageVersion() {
+  const packagePaths = [
+    path.join(__dirname, '../../package.json'),
+    path.join(__dirname, '../package.json'),
+  ];
+
+  for (const packagePath of packagePaths) {
+    if (!fs.existsSync(packagePath)) continue;
+
+    const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
+    if (packageJson.name === 'stationarr' && packageJson.version) {
+      return packageJson.version;
+    }
+  }
+
+  return null;
+}
+
+const version = process.env.APP_VERSION || getPackageVersion() || 'unknown';
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -41,7 +61,6 @@ app.get('/api/health', (_req, res) => res.json({ ok: true, version }));
 
 // Serve frontend (production)
 const DIST = path.join(__dirname, '../public');
-const fs   = require('fs');
 if (fs.existsSync(DIST)) {
   app.use(express.static(DIST));
   app.get('*', (_req, res) => res.sendFile(path.join(DIST, 'index.html')));
