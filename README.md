@@ -492,6 +492,40 @@ Commercial licenses are available separately for organizations that want to use,
 
 ---
 
+## Home Assistant Integration
+
+Stationarr provides an unauthenticated status summary endpoint for Home Assistant and other monitoring tools:
+
+```sh
+curl http://your-stationarr-host/api/status/summary
+```
+
+Example Home Assistant REST sensors:
+
+```yaml
+rest:
+  - resource: http://your-stationarr-host/api/status/summary
+    scan_interval: 300
+    sensor:
+      - name: Stationarr Status
+        value_template: "{{ value_json.status }}"
+      - name: Stationarr Version
+        value_template: "{{ value_json.version }}"
+      - name: Stationarr Playlists
+        value_template: "{{ value_json.playlists }}"
+        unit_of_measurement: playlists
+      - name: Stationarr Channels
+        value_template: "{{ value_json.channels }}"
+        unit_of_measurement: channels
+      - name: Stationarr EPG Programmes
+        value_template: "{{ value_json.epg_programmes }}"
+        unit_of_measurement: programmes
+```
+
+The endpoint is intentionally unauthenticated so Home Assistant can poll it without a JWT.
+
+---
+
 ## Contributing
 
 PRs welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for details.

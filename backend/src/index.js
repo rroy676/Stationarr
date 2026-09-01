@@ -5,6 +5,7 @@ const path      = require('path');
 const fs        = require('fs');
 const rateLimit = require('express-rate-limit');
 const logger = require('./logger');
+const db = require('./db');
 
 function getPackageVersion() {
   const packagePaths = [
@@ -58,6 +59,32 @@ app.use('/api/logs',      require('./routes/logs'));
 app.use('/', require('./routes/xtream'));
 
 app.get('/api/health', (_req, res) => res.json({ ok: true, version }));
+
+// Public status summary for monitoring integrations such as Home Assistant.
+app.get('/api/status/summary', (_req, res) => {
+  try {
+    const count = (table) => db.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get().count;
+    const summary = {
+      status: 'ok',
+      version,
+      users: count('users'),
+      playlists: count('playlists'),
+      channels: count('channels'),
+      epg_sources: count('epg_sources'),
+      epg_channels: count('epg_channels'),
+      guide_programmes: count('guide_programmes'),
+      scraper_channels: count('scraper_channels'),
+      last_refreshed: db.prepare('SELECT MAX(last_refreshed) AS last_refreshed FROM playlists').get().last_refreshed,
+      last_fetched: db.prepare('SELECT MAX(last_fetched) AS last_fetched FROM epg_sources').get().last_fetched,
+      last_error: null,
+    };
+    // Keep the HA-facing name explicit while retaining the database table name.
+    summary.epg_programmes = summary.guide_programmes;
+    res.json(summary);
+  } catch (error) {
+    res.json({ status: 'degraded', version, last_error: error.message });
+  }
+});
 
 // Serve frontend (production)
 const DIST = path.join(__dirname, '../public');
