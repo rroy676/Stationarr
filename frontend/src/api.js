@@ -101,6 +101,10 @@ export const playlists = {
   refresh: (id)       => post(`/playlists/${id}/refresh`),
 };
 
+export const serve = {
+  presets: () => get('/serve/presets'),
+};
+
 export const channels = {
   list:    (playlistId, params = {}) => {
     const query = new URLSearchParams({ playlist_id: String(playlistId) });

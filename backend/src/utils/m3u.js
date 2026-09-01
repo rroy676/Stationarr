@@ -89,13 +89,17 @@ function parseM3U(text, options = {}) {
 /**
  * Export an array of channel rows (from DB) back to an M3U string.
  */
-function exportM3U(channels) {
+function exportM3U(channels, options = {}) {
+  const { includeLogo = true, includeGroup = true, channelId = 'epg' } = options;
   const lines = ['#EXTM3U'];
   for (const c of channels) {
-    const logo  = c.tvg_logo  || '';
-    const epgId = c.epg_id    || c.tvg_id || '';
+    const logo  = includeLogo ? (c.tvg_logo || '') : '';
+    const epgId = channelId === 'tvg' ? (c.tvg_id || c.epg_id || '') : (c.epg_id || c.tvg_id || '');
     const name  = c.tvg_name  || c.name;
-    lines.push(`#EXTINF:${c.duration} tvg-id="${epgId}" tvg-name="${name}" tvg-logo="${logo}" group-title="${c.grp}",${c.name}`);
+    const attrs = [`tvg-id="${epgId}"`, `tvg-name="${name}"`];
+    if (includeLogo) attrs.push(`tvg-logo="${logo}"`);
+    if (includeGroup) attrs.push(`group-title="${c.grp || ''}"`);
+    lines.push(`#EXTINF:${c.duration} ${attrs.join(' ')},${c.name}`);
     lines.push(c.url);
   }
   return lines.join('\n');
