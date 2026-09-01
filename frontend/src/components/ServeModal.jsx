@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Copy, Check, ExternalLink, RefreshCw } from 'lucide-react';
-import { playlists as api } from '../api.js';
+import { playlists as api, serve as serveApi } from '../api.js';
 import { useToast } from '../context.jsx';
 
 function fallbackCopy(text, done) {
@@ -19,12 +19,19 @@ export default function ServeModal({ playlist: initialPlaylist, onClose }) {
   const [copied,   setCopied]   = useState('');
   const [regen,    setRegen]    = useState(false);
   const [regenCombined, setRegenCombined] = useState(false);
+  const [preset, setPreset] = useState('generic');
+  const [presets, setPresets] = useState([]);
+
+  useEffect(() => {
+    serveApi.presets().then(({ presets: available }) => setPresets(available || [])).catch(() => {});
+  }, []);
 
   const base = window.location.origin;
+  const presetQuery = preset === 'generic' ? '' : `?preset=${encodeURIComponent(preset)}`;
 
-  const m3uUrl       = `${base}/api/serve/${playlist.slug}/playlist.m3u`;
-  const combinedM3uUrl = playlist.combined_slug ? `${base}/api/serve/combined/${playlist.combined_slug}/playlist.m3u` : '';
-  const epgUrl       = `${base}/api/serve/${playlist.slug}/epg.xml`;
+  const m3uUrl       = `${base}/api/serve/${playlist.slug}/playlist.m3u${presetQuery}`;
+  const combinedM3uUrl = playlist.combined_slug ? `${base}/api/serve/combined/${playlist.combined_slug}/playlist.m3u${presetQuery}` : '';
+  const epgUrl       = `${base}/api/serve/${playlist.slug}/epg.xml${presetQuery}`;
   const xtreamServer = base;
   const xtreamM3uUrl = `${base}/get.php?username=${playlist.xtream_user}&password=${playlist.xtream_pass}&type=m3u_plus`;
   const xtreamEpgUrl = `${base}/xmltv.php?username=${playlist.xtream_user}&password=${playlist.xtream_pass}`;
@@ -74,6 +81,26 @@ export default function ServeModal({ playlist: initialPlaylist, onClose }) {
           <button className="btn btn-ghost btn-icon btn-sm" onClick={onClose}>X</button>
         </div>
         <div className="modal-body">
+
+          <div style={{ background: 'var(--surface2)', borderRadius: 8, padding: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <label htmlFor="serve-preset" style={{ fontWeight: 600, fontSize: 13 }}>Client preset</label>
+            <select id="serve-preset" className="input" value={preset} onChange={e => setPreset(e.target.value)}>
+              {(presets.length ? presets : [
+                { id: 'generic', label: 'Generic M3U/XMLTV', notes: '' },
+                { id: 'plex', label: 'Plex', notes: '' },
+                { id: 'channels-dvr', label: 'Channels DVR', notes: '' },
+                { id: 'jellyfin', label: 'Jellyfin', notes: '' },
+              ]).map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
+            </select>
+            <p className="text-xs text-muted">
+              {(presets.find(option => option.id === preset) || {}).notes || 'Standard output for broad IPTV player compatibility.'}
+            </p>
+            {(window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && (
+              <p className="text-xs" style={{ color: 'var(--yellow)' }}>These links use localhost and will only work on this machine. Use a reachable BASE_URL for another device.</p>
+            )}
+          </div>
+
+          <div className="divider" style={{ margin: '4px 0' }} />
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <p style={{ fontWeight: 600, fontSize: 13 }}>Direct M3U</p>
