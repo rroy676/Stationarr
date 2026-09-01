@@ -104,7 +104,16 @@ export default function Editor() {
   const [showMatchPicker, setShowMatchPicker] = useState(false);
   const autoMatch = useCallback(async (matchLogos, sourceId) => {
     if (epgSources.length > 1 && sourceId === null) return setShowMatchPicker({ matchLogos });
-    try { const res = await epgApi.autoMatch({ playlist_id: id, match_logos: matchLogos, source_id: sourceId }); toast(`Matched ${res.matched} channels`, 'success'); await loadChannels(); } catch (e) { toast(e.message, 'error'); }
+    try {
+      const res = await epgApi.autoMatch({ playlist_id: id, match_logos: matchLogos, source_id: sourceId });
+      const breakdown = (res.results || []).reduce((counts, item) => {
+        if (item.confidence) counts[item.confidence] = (counts[item.confidence] || 0) + 1;
+        return counts;
+      }, {});
+      const summary = ['High', 'Medium', 'Low', 'Manual'].filter(k => breakdown[k]).map(k => `${breakdown[k]} ${k}`).join(' · ');
+      toast(`Matched ${res.matched} channels${summary ? ` (${summary})` : ''}`, 'success');
+      await loadChannels();
+    } catch (e) { toast(e.message, 'error'); }
   }, [id, epgSources, loadChannels]);
   const onEpgSourceChange = useCallback(async () => {
     const sources = await epgApi.list(); setEpgSources(sources); const loaded = sources.filter(s => s.channel_count > 0); const results = await Promise.all(loaded.map(s => epgApi.channels(s.id))); setAllEpgCh(results.flat());

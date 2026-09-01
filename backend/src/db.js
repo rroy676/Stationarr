@@ -192,6 +192,15 @@ const chCols2 = db.prepare("PRAGMA table_info(channels)").all().map(c => c.name)
 if (!chCols2.includes('backup_epg_id')) {
   db.exec("ALTER TABLE channels ADD COLUMN backup_epg_id TEXT NOT NULL DEFAULT ''");
 }
+if (!chCols2.includes('auto_match_confidence')) {
+  db.exec("ALTER TABLE channels ADD COLUMN auto_match_confidence TEXT");
+}
+if (!chCols2.includes('auto_match_reason')) {
+  db.exec("ALTER TABLE channels ADD COLUMN auto_match_reason TEXT");
+}
+// Preserve an explanation for channels that already had an EPG assignment
+// before match confidence was introduced.
+db.exec("UPDATE channels SET auto_match_confidence='Manual', auto_match_reason='Manually assigned' WHERE epg_id != '' AND auto_match_confidence IS NULL");
 
 if (!epgCols3.includes('guide_index_status')) db.exec("ALTER TABLE epg_sources ADD COLUMN guide_index_status TEXT DEFAULT 'idle'");
 if (!epgCols3.includes('guide_index_updated')) db.exec("ALTER TABLE epg_sources ADD COLUMN guide_index_updated TEXT");

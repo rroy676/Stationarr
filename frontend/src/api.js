@@ -126,6 +126,7 @@ export const epg = {
   upload:     (id, file)  => upload('POST', `/epg/${id}/upload`, file, file.type || 'application/octet-stream'),
   refresh:    (id)        => post(`/epg/${id}/refresh`),
   autoMatch:  (body)      => post('/epg/auto-match',   body),
+  matchDetails: (playlistId) => get(`/epg/match-details?playlist_id=${encodeURIComponent(playlistId)}`),
   clearCache:  (id)        => del(`/epg/${id}/cache`),
   reorder:    (body)       => post('/epg/reorder', body),
   programmes: (epgId)     => get(`/epg/programmes?epg_id=${encodeURIComponent(epgId)}`),
