@@ -1,179 +1,120 @@
-const sax  = require('sax');
+const fs = require('fs');
+const sax = require('sax');
 const zlib = require('zlib');
 const { Readable } = require('stream');
 
-/**
- * Parse an XMLTV string using a streaming SAX parser.
- * Memory usage is O(channels) not O(file size).
- * Handles both plain XML and gzip-compressed XML.
- */
-function parseXMLTV(text) {
-  const channels = [];
-  const parser   = sax.parser(true); // strict mode
+function isGzip(buffer) {
+  return Buffer.isBuffer(buffer) && buffer.length >= 2 && buffer[0] === 0x1f && buffer[1] === 0x8b;
+}
 
-  let inChannel  = false;
-  let currentId  = '';
-  let currentName = '';
-  let currentIcon = '';
-  let inDisplayName = false;
+function parsingError(error) {
+  // sax includes a line, column, and a small source excerpt in its message. Do
+  // not add the source path/URL here: EPG URLs can contain credentials.
+  const detail = String(error?.message || error).split('\n').slice(0, 3).join('\n');
+  return new Error(`Invalid XMLTV data: ${detail}`, { cause: error });
+}
+
+/**
+ * Create the one parser used by string, buffer, upload, refresh, and file
+ * imports. SAX handles all XML whitespace around attributes; using the same
+ * strict XML parser everywhere prevents the old paths from disagreeing.
+ */
+function createChannelParser() {
+  const channels = [];
+  const parser = sax.parser(true, { trim: false, normalize: false });
+  let current = null;
+  let displayName = null;
 
   parser.onopentag = (node) => {
     if (node.name === 'channel') {
-      inChannel   = true;
-      currentId   = node.attributes.id || '';
-      currentName = '';
-      currentIcon = '';
-    } else if (inChannel && node.name === 'display-name') {
-      inDisplayName = true;
-    } else if (inChannel && node.name === 'icon') {
-      currentIcon = node.attributes.src || '';
+      current = { id: node.attributes.id || '', name: '', icon: '' };
+    } else if (current && node.name === 'display-name' && displayName === null) {
+      displayName = '';
+    } else if (current && node.name === 'icon' && !current.icon) {
+      current.icon = node.attributes.src || '';
     }
   };
 
   parser.ontext = (text) => {
-    if (inDisplayName && !currentName) currentName = text.trim();
+    if (current && displayName !== null) displayName += text;
+  };
+
+  parser.oncdata = (text) => {
+    if (current && displayName !== null) displayName += text;
   };
 
   parser.onclosetag = (name) => {
-    if (name === 'display-name') inDisplayName = false;
-    if (name === 'channel') {
-      if (currentId) channels.push({ id: currentId, name: currentName || currentId, icon: currentIcon });
-      inChannel = false;
+    if (name === 'display-name' && current && displayName !== null) {
+      const nameText = displayName.trim();
+      if (nameText && !current.name) current.name = nameText;
+      displayName = null;
+    } else if (name === 'channel' && current) {
+      if (current.id) {
+        current.name ||= current.id;
+        channels.push(current);
+      }
+      current = null;
+      displayName = null;
     }
-    // Stop after channels — skip parsing millions of <programme> tags
-    // since we only need channel metadata for matching
   };
 
-  parser.onerror = () => { parser.resume(); }; // skip bad nodes
+  return { parser, channels };
+}
 
+/** Parse XMLTV text. Memory usage is O(channels), not O(programmes). */
+function parseXMLTV(text) {
+  const { parser, channels } = createChannelParser();
+  let firstError;
+  parser.onerror = (error) => { firstError ||= parsingError(error); };
   try {
-    parser.write(text).close();
-  } catch {}
-
+    parser.write(String(text || '')).close();
+  } catch (error) {
+    firstError ||= parsingError(error);
+  }
+  if (firstError) throw firstError;
   return channels;
 }
 
-/**
- * Parse an XMLTV Buffer (possibly gzipped) using streaming SAX.
- * Returns a Promise<channel[]>.
- * Stops after all <channel> tags are done (before <programme> tags)
- * to avoid processing millions of entries.
- */
-function parseXMLTVBuffer(buffer) {
-  return new Promise((resolve, reject) => {
-    const channels = [];
-    const parser   = sax.createStream(true);
+async function parseXMLTVStream(source, gzipped = false) {
+  const { parser, channels } = createChannelParser();
+  let firstError;
+  parser.onerror = (error) => { firstError ||= parsingError(error); };
+  const input = gzipped ? source.pipe(zlib.createGunzip()) : source;
+  const decoder = new TextDecoder();
 
-    let inChannel     = false;
-    let currentId     = '';
-    let currentName   = '';
-    let currentIcon   = '';
-    let inDisplayName = false;
-    let channelsDone  = false;
-
-    parser.on('opentag', (node) => {
-      if (channelsDone) return;
-      if (node.name === 'channel') {
-        inChannel   = true;
-        currentId   = node.attributes.id || '';
-        currentName = '';
-        currentIcon = '';
-      } else if (inChannel && node.name === 'display-name') {
-        inDisplayName = true;
-      } else if (inChannel && node.name === 'icon') {
-        currentIcon = node.attributes.src || '';
-      } else if (node.name === 'programme') {
-        // First programme tag means all channels are done — stop parsing
-        channelsDone = true;
-        resolve(channels);
-      }
-    });
-
-    parser.on('text', (text) => {
-      if (inDisplayName && !currentName) currentName = text.trim();
-    });
-
-    parser.on('closetag', (name) => {
-      if (name === 'display-name') inDisplayName = false;
-      if (name === 'channel') {
-        if (currentId) channels.push({ id: currentId, name: currentName || currentId, icon: currentIcon });
-        inChannel = false;
-      }
-    });
-
-    parser.on('end',   () => resolve(channels));
-    parser.on('error', (e) => { parser.resume?.(); }); // skip bad nodes
-
-    // Detect gzip
-    const isGzip = buffer[0] === 0x1f && buffer[1] === 0x8b;
-    const source  = Readable.from(buffer);
-
-    if (isGzip) {
-      source.pipe(zlib.createGunzip()).pipe(parser);
-    } else {
-      source.pipe(parser);
+  try {
+    for await (const chunk of input) {
+      parser.write(decoder.decode(chunk, { stream: true }));
+      if (firstError) throw firstError;
     }
-  });
+    parser.write(decoder.decode()).close();
+  } catch (error) {
+    const usefulError = firstError || parsingError(error);
+    console.error(`[xmltv] ${usefulError.message}`);
+    throw usefulError;
+  }
+  return channels;
 }
 
+/** Parse an XMLTV Buffer, detecting gzip by its magic bytes. */
+function parseXMLTVBuffer(buffer) {
+  if (!Buffer.isBuffer(buffer)) return Promise.reject(new TypeError('XMLTV input must be a Buffer'));
+  return parseXMLTVStream(Readable.from([buffer]), isGzip(buffer));
+}
 
-
-// Parse XMLTV file from disk path using SAX streaming — never loads full file into RAM
+/** Parse an XMLTV file without loading the whole document into memory. */
 async function parseXMLTVFile(filePath) {
-  const fs = require('fs');
-
-  return new Promise((resolve, reject) => {
-    const channels    = [];
-    const parser      = sax.parser(false); // non-strict: lowercase tags
-    let inChannel     = false;
-    let currentId     = '';
-    let currentName   = '';
-    let currentIcon   = '';
-    let inDisplayName = false;
-
-    parser.onopentag = (node) => {
-      const name = (node.name || '').toLowerCase();
-      if (name === 'channel') {
-        inChannel   = true;
-        currentId   = node.attributes.id || node.attributes.ID || '';
-        currentName = '';
-        currentIcon = '';
-      } else if (inChannel && name === 'display-name') {
-        inDisplayName = true;
-      } else if (inChannel && name === 'icon') {
-        currentIcon = node.attributes.src || node.attributes.SRC || '';
-      }
-    };
-
-    parser.onclosetag = (name) => {
-      const n = (name || '').toLowerCase();
-      if (n === 'channel') {
-        if (currentId && currentName) {
-          channels.push({ tvg_id: currentId, name: currentName, icon: currentIcon });
-        }
-        inChannel = false; inDisplayName = false;
-      } else if (n === 'display-name') {
-        inDisplayName = false;
-      }
-    };
-
-    parser.ontext = (text) => {
-      if (inChannel && inDisplayName && !currentName) {
-        currentName = text.trim();
-      }
-    };
-
-    parser.onerror = (err) => { parser.resume(); };
-    parser.onend   = () => resolve(channels);
-
-    const isGzip = filePath.endsWith('.gz');
-    const input  = fs.createReadStream(filePath);
-    const stream = isGzip ? input.pipe(zlib.createGunzip()) : input;
-
-    stream.on('data', chunk => parser.write(chunk.toString()));
-    stream.on('end',  () => parser.close());
-    stream.on('error', reject);
-  });
+  // Cache files retain their .gz suffix; magic-byte detection also supports
+  // gzipped uploads stored under a temporary extension.
+  const handle = await fs.promises.open(filePath, 'r');
+  const header = Buffer.alloc(2);
+  try {
+    await handle.read(header, 0, 2, 0);
+  } finally {
+    await handle.close();
+  }
+  const input = fs.createReadStream(filePath);
+  return parseXMLTVStream(input, isGzip(header));
 }
 
 module.exports = { parseXMLTV, parseXMLTVBuffer, parseXMLTVFile };
