@@ -99,6 +99,7 @@ export const playlists = {
   regenCombinedToken: () => post('/playlists/combined-token/regenerate'),
   import: (id, body) => post(`/playlists/${id}/import`, body),
   refresh: (id)       => post(`/playlists/${id}/refresh`),
+  validateUrl: (url, type) => post('/serve/validate-url', { url, type }),
 };
 
 export const channels = {

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Copy, Check, ExternalLink, RefreshCw } from 'lucide-react';
+import { Copy, Check, ExternalLink, RefreshCw, X } from 'lucide-react';
 import { playlists as api } from '../api.js';
 import { useToast } from '../context.jsx';
 
@@ -19,6 +19,7 @@ export default function ServeModal({ playlist: initialPlaylist, onClose }) {
   const [copied,   setCopied]   = useState('');
   const [regen,    setRegen]    = useState(false);
   const [regenCombined, setRegenCombined] = useState(false);
+  const [tests, setTests] = useState({});
 
   const base = window.location.origin;
 
@@ -35,6 +36,16 @@ export default function ServeModal({ playlist: initialPlaylist, onClose }) {
       navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
     } else {
       fallbackCopy(text, done);
+    }
+  };
+
+  const testUrl = async (key, url, type) => {
+    setTests(current => ({ ...current, [key]: { loading: true } }));
+    try {
+      const result = await api.validateUrl(url, type);
+      setTests(current => ({ ...current, [key]: result }));
+    } catch (e) {
+      setTests(current => ({ ...current, [key]: { loading: false, reachable: false, warnings: [e.message] } }));
     }
   };
 
@@ -78,11 +89,15 @@ export default function ServeModal({ playlist: initialPlaylist, onClose }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <p style={{ fontWeight: 600, fontSize: 13 }}>Direct M3U</p>
             <p className="text-xs text-muted">For players that accept a raw M3U URL. Use Combined M3U to include all of your playlists in one URL</p>
-            <UrlRow label="M3U playlist" url={m3uUrl} copied={copied === 'm3u'} onCopy={() => copy(m3uUrl, 'm3u')} />
+            <UrlRow label="M3U playlist" url={m3uUrl} type="m3u" testKey="m3u" test={tests.m3u} onTest={testUrl} copied={copied === 'm3u'} onCopy={() => copy(m3uUrl, 'm3u')} />
             {combinedM3uUrl && (
               <UrlRow
                 label="Combined M3U"
                 url={combinedM3uUrl}
+                type="m3u"
+                testKey="combined-m3u"
+                test={tests['combined-m3u']}
+                onTest={testUrl}
                 copied={copied === 'combined-m3u'}
                 onCopy={() => copy(combinedM3uUrl, 'combined-m3u')}
                 action={
@@ -92,7 +107,7 @@ export default function ServeModal({ playlist: initialPlaylist, onClose }) {
                 }
               />
             )}
-            <UrlRow label="EPG (XMLTV)"  url={epgUrl} copied={copied === 'epg'} onCopy={() => copy(epgUrl, 'epg')} />
+            <UrlRow label="EPG (XMLTV)" url={epgUrl} type="xmltv" testKey="epg" test={tests.epg} onTest={testUrl} copied={copied === 'epg'} onCopy={() => copy(epgUrl, 'epg')} />
           </div>
 
           <div className="divider" style={{ margin: '4px 0' }} />
@@ -107,8 +122,8 @@ export default function ServeModal({ playlist: initialPlaylist, onClose }) {
               <CredBox label="Password" value={playlist.xtream_pass}  copyKey="xpass"   copied={copied} onCopy={copy} />
             </div>
 
-            <UrlRow label="M3U (Xtream format)" url={xtreamM3uUrl} copied={copied === 'xm3u'} onCopy={() => copy(xtreamM3uUrl, 'xm3u')} />
-            <UrlRow label="EPG (Xtream format)" url={xtreamEpgUrl} copied={copied === 'xepg'} onCopy={() => copy(xtreamEpgUrl, 'xepg')} />
+            <UrlRow label="M3U (Xtream format)" url={xtreamM3uUrl} type="m3u" testKey="xm3u" test={tests.xm3u} onTest={testUrl} copied={copied === 'xm3u'} onCopy={() => copy(xtreamM3uUrl, 'xm3u')} />
+            <UrlRow label="EPG (Xtream format)" url={xtreamEpgUrl} type="xmltv" testKey="xepg" test={tests.xepg} onTest={testUrl} copied={copied === 'xepg'} onCopy={() => copy(xtreamEpgUrl, 'xepg')} />
 
             <div style={{ background: 'var(--surface2)', borderRadius: 8, padding: '10px 12px', fontSize: 12, color: 'var(--muted)', lineHeight: 1.6 }}>
               <strong style={{ color: 'var(--text)', display: 'block', marginBottom: 4 }}>TiviMate setup</strong>
@@ -155,18 +170,35 @@ function CredBox({ label, value, copyKey, copied, onCopy }) {
   );
 }
 
-function UrlRow({ label, url, copied, onCopy, action }) {
+function UrlRow({ label, url, copied, onCopy, action, type, testKey, test, onTest }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
         <span className="text-xs text-muted" style={{ fontWeight: 500 }}>{label}</span>
-        {action}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {action}
+          <button className="btn btn-sm" onClick={() => onTest(testKey, url, type)} disabled={test?.loading}>
+            {test?.loading ? 'Testing…' : 'Test'}
+          </button>
+        </div>
       </div>
       <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
         <input className="input mono" value={url} readOnly style={{ flex: 1, fontSize: 11 }} onClick={e => e.target.select()} />
         <button className="btn btn-sm btn-icon" onClick={onCopy} title="Copy"><Copy size={13} /></button>
         <a href={url} target="_blank" rel="noreferrer" className="btn btn-sm btn-icon"><ExternalLink size={13} /></a>
       </div>
+      {test && !test.loading && (
+        <div style={{ fontSize: 11, lineHeight: 1.45, paddingLeft: 2 }}>
+          <div className={test.reachable ? 'text-green' : 'text-red'}>
+            {test.reachable ? <Check size={12} /> : <X size={12} />} {test.reachable ? 'Reachable' : 'Unreachable'}
+            {test.contentType && <span className="text-muted"> · {test.contentType}</span>}
+          </div>
+          {test.reachable && <div className={test.looksValid ? 'text-green' : 'text-red'}>
+            {test.looksValid ? '✓ Content looks valid' : '✗ Content type/content validation failed'}
+          </div>}
+          {test.warnings?.map((warning, index) => <div className="text-red" key={index}>⚠ {warning}</div>)}
+        </div>
+      )}
     </div>
   );
 }

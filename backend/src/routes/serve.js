@@ -3,6 +3,65 @@ const db     = require('../db');
 const { exportM3U } = require('../utils/m3u');
 const { mergeXMLTV, proxyEPG } = require('../utils/xmltv-merge');
 const logger = require('../logger');
+const fetch = require('node-fetch');
+
+// POST /api/serve/validate-url
+// Check a generated playlist URL from the same network location as Stationarr.
+router.post('/validate-url', async (req, res) => {
+  const { url, type } = req.body || {};
+  const warnings = [];
+
+  if (typeof url !== 'string' || !url.trim()) {
+    return res.status(400).json({ error: 'url is required' });
+  }
+
+  const value = url.trim();
+  let parsed;
+  try {
+    parsed = new URL(value);
+    if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('unsupported protocol');
+  } catch {
+    return res.status(400).json({
+      url: value,
+      reachable: false,
+      contentType: null,
+      looksValid: false,
+      warnings: ['URL must be a valid HTTP or HTTPS URL'],
+    });
+  }
+
+  const hostname = parsed.hostname.toLowerCase();
+  if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1') {
+    warnings.push('This URL uses localhost and may only be reachable from the Stationarr container.');
+  }
+
+  const kind = type === 'm3u' || type === 'xmltv'
+    ? type
+    : /(?:\.m3u|get\.php)(?:$|[?#])/i.test(parsed.pathname + parsed.search) ? 'm3u' : 'xmltv';
+  let reachable = false;
+  let contentType = null;
+  let looksValid = false;
+
+  try {
+    const response = await fetch(value, { timeout: 10000, follow: 5 });
+    contentType = response.headers.get('content-type');
+    reachable = response.ok;
+    const body = await response.text();
+    looksValid = kind === 'm3u'
+      ? body.trimStart().startsWith('#EXTM3U')
+      : /<tv(?:\s|>)/i.test(body);
+  } catch (error) {
+    warnings.push(`Request failed: ${error.message}`);
+  }
+
+  if (reachable && !looksValid) {
+    warnings.push(kind === 'm3u'
+      ? 'The response does not look like an M3U playlist (missing #EXTM3U).'
+      : 'The response does not look like XMLTV data (missing <tv>).');
+  }
+
+  res.json({ url: value, reachable, contentType, looksValid, warnings });
+});
 
 // GET /api/serve/combined/:token/playlist.m3u
 // Uses a dedicated user-level share token so individual playlist slugs do not
