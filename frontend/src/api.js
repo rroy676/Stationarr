@@ -59,6 +59,24 @@ async function request(method, path, body, raw = false) {
   return data;
 }
 
+async function upload(method, path, body, contentType = 'application/octet-stream') {
+  const currentToken = token();
+  const headers = { 'Content-Type': contentType };
+  if (currentToken) headers.Authorization = `Bearer ${currentToken}`;
+
+  const res = await fetch(`${BASE}${path}`, { method, headers, body });
+  const data = await res.json().catch(() => ({}));
+  if (res.status === 401) {
+    const message = data.error || data.message || 'Unauthorized';
+    localStorage.removeItem('token');
+    sessionStorage.setItem('auth_error', message);
+    if (window.location.pathname !== '/login') window.location.assign('/login');
+    throw new Error(message);
+  }
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+}
+
 const get  = (path)        => request('GET',    path);
 const post = (path, body)  => request('POST',   path, body);
 const put  = (path, body)  => request('PUT',    path, body);
@@ -105,7 +123,7 @@ export const epg = {
   remove:     (id)        => del(`/epg/${id}`),
   channels:   (id)        => get(`/epg/${id}/channels`),
   fetch:      (id)        => post(`/epg/${id}/fetch`),
-  upload:     (id, body)  => post(`/epg/${id}/upload`, body),
+  upload:     (id, file)  => upload('POST', `/epg/${id}/upload`, file, file.type || 'application/octet-stream'),
   refresh:    (id)        => post(`/epg/${id}/refresh`),
   autoMatch:  (body)      => post('/epg/auto-match',   body),
   clearCache:  (id)        => del(`/epg/${id}/cache`),

@@ -66,7 +66,7 @@ if (fs.existsSync(DIST)) {
   app.get('*', (_req, res) => res.sendFile(path.join(DIST, 'index.html')));
 }
 
-app.listen(PORT, () => {
+if (require.main === module) app.listen(PORT, () => {
   console.log(`Stationarr running on http://localhost:${PORT}`);
   logger.info('system', 'Stationarr startup', { port: PORT, version });
   // Start background auto-refresh scheduler
@@ -74,3 +74,5 @@ app.listen(PORT, () => {
   // Queue existing stale guide indexes for cached EPG sources
   require('./utils/guide-indexer').queueStaleGuideIndexes();
 });
+
+module.exports = app;
