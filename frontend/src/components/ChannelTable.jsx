@@ -243,6 +243,8 @@ export default function ChannelTable({
                 <th>Channel</th>
                 <th style={{ width: 160 }}>Group</th>
                 <th style={{ width: 130 }}>EPG</th>
+                <th style={{ width: 90 }}>Confidence</th>
+                <th style={{ width: 210 }}>Match reason</th>
                 <th style={{ width: 70, textAlign: 'center' }}>Status</th>
                 <th style={{ width: 40 }} />
               </tr>
@@ -250,7 +252,7 @@ export default function ChannelTable({
             <tbody>
               {/* Spacer row above visible range */}
               {visibleStart > 0 && (
-                <tr><td colSpan={7} style={{ height: visibleStart * ROW_H, padding: 0, border: 'none' }} /></tr>
+                <tr><td colSpan={9} style={{ height: visibleStart * ROW_H, padding: 0, border: 'none' }} /></tr>
               )}
               {displayChannels.slice(visibleStart, visibleStart + visibleCount).map((ch, i) => {
                 const idx = visibleStart + i;
@@ -292,6 +294,8 @@ export default function ChannelTable({
                       : <span className="text-faint text-sm">—</span>
                     }
                   </td>
+                  <td><ConfidenceBadge confidence={ch.auto_match_confidence} /></td>
+                  <td><span className="text-xs text-muted" title={ch.auto_match_reason || ''}>{ch.auto_match_reason || '—'}</span></td>
                   <td style={{ textAlign: 'center' }} onClick={e => e.stopPropagation()}>
                     <button
                       className="btn btn-ghost btn-icon btn-sm"
@@ -313,7 +317,7 @@ export default function ChannelTable({
               })}
               {/* Spacer row below visible range */}
               {visibleStart + visibleCount < displayChannels.length && (
-                <tr><td colSpan={7} style={{ height: (displayChannels.length - visibleStart - visibleCount) * ROW_H, padding: 0, border: 'none' }} /></tr>
+                <tr><td colSpan={9} style={{ height: (displayChannels.length - visibleStart - visibleCount) * ROW_H, padding: 0, border: 'none' }} /></tr>
               )}
             </tbody>
           </table>
@@ -340,6 +344,14 @@ export default function ChannelTable({
       )}
     </div>
   );
+}
+
+function ConfidenceBadge({ confidence }) {
+  if (!confidence) return <span className="text-faint text-xs">—</span>;
+  const className = confidence === 'High' ? 'badge-green'
+    : confidence === 'Medium' ? 'badge-yellow'
+    : confidence === 'Low' ? 'badge-red' : 'badge-muted';
+  return <span className={`badge ${className}`} title={`${confidence} confidence`}>{confidence}</span>;
 }
 
 function LogoThumb({ src }) {

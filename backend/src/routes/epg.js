@@ -309,6 +309,21 @@ router.get('/programmes', async (req, res) => {
   res.json(sorted);
 });
 
+// GET /api/epg/match-details?playlist_id=X — explain each channel's EPG match
+router.get('/match-details', (req, res) => {
+  const { playlist_id } = req.query;
+  if (!playlist_id) return res.status(400).json({ error: 'playlist_id required' });
+  const playlist = db.prepare('SELECT id FROM playlists WHERE id=? AND user_id=?').get(playlist_id, req.user.id);
+  if (!playlist) return res.status(404).json({ error: 'Not found' });
+
+  const results = db.prepare(`
+    SELECT id AS channel_id, name, epg_id, auto_match_confidence AS confidence,
+           auto_match_reason AS reason
+    FROM channels WHERE playlist_id=? ORDER BY ord ASC, id ASC
+  `).all(playlist_id);
+  res.json({ results });
+});
+
 // POST /api/epg/auto-match — smarter fuzzy matching
 router.post('/auto-match', (req, res) => {
   const { playlist_id, match_logos } = req.body;
@@ -331,50 +346,97 @@ router.post('/auto-match', (req, res) => {
         WHERE es.user_id = ?
       `).all(req.user.id);
 
-  if (!epgChannels.length) return res.json({ matched: 0, logo_matched: 0, unmatched: 0 });
+  const channels = db.prepare('SELECT * FROM channels WHERE playlist_id = ?').all(playlist_id);
+  if (!epgChannels.length) return res.json({
+    matched: 0, logo_matched: 0, unmatched: channels.filter(ch => !ch.epg_id).length,
+    results: channels.map(ch => ({ channel_id: ch.id, name: ch.name, epg_id: ch.epg_id || '',
+      confidence: ch.auto_match_confidence || (ch.epg_id ? 'Manual' : null),
+      reason: ch.auto_match_reason || (ch.epg_id ? 'Manually assigned' : null) }))
+  });
 
   // Build lookup maps — exact id, exact normalized name, fuzzy name
   const byId    = new Map(epgChannels.map(c => [c.tvg_id.toLowerCase(), c]));
   const byNorm  = new Map(epgChannels.map(c => [normalize(c.name), c]));
+  const byCountry = new Map(epgChannels.filter(c => hasCountry(c.name)).map(c => [nameCountryKey(c.name), c]));
   const byFuzzy = new Map(epgChannels.map(c => [fuzzy(c.name), c]));
 
-  const channels = db.prepare('SELECT * FROM channels WHERE playlist_id = ?').all(playlist_id);
-
   let matched = 0, logo_matched = 0, unmatched = 0;
-  const updateEpg  = db.prepare('UPDATE channels SET epg_id=? WHERE id=?');
+  const results = [];
+  const updateEpg  = db.prepare('UPDATE channels SET epg_id=?, auto_match_confidence=?, auto_match_reason=? WHERE id=?');
   const updateLogo = db.prepare('UPDATE channels SET tvg_logo=? WHERE id=?');
 
   db.transaction(() => {
     for (const ch of channels) {
       const existingId = ch.epg_id || ch.tvg_id;
-
-      const epg =
-        // 1. Exact tvg-id match
-        byId.get(existingId.toLowerCase()) ||
-        byId.get(ch.tvg_id.toLowerCase()) ||
-        // 2. Exact normalized name
-        byNorm.get(normalize(ch.name)) ||
-        byNorm.get(normalize(ch.tvg_name)) ||
-        // 3. Fuzzy name (strips HD, SD, +1, country suffix, punctuation)
-        byFuzzy.get(fuzzy(ch.name)) ||
-        byFuzzy.get(fuzzy(ch.tvg_name));
+      let epg;
+      let match;
+      // 1. Exact tvg-id match
+      epg = byId.get(String(existingId).toLowerCase()) || byId.get(String(ch.tvg_id).toLowerCase());
+      if (epg) match = matchConfidence('id');
+      // 2. Exact normalized name
+      if (!epg) {
+        epg = byNorm.get(normalize(ch.name)) || byNorm.get(normalize(ch.tvg_name));
+        if (epg) match = matchConfidence('normalized-name');
+      }
+      // 3. Name + country match (country is conventionally a trailing code/name)
+      if (!epg && hasCountry(ch.name || ch.tvg_name)) {
+        epg = byCountry.get(nameCountryKey(ch.name)) || byCountry.get(nameCountryKey(ch.tvg_name));
+        if (epg) match = matchConfidence('country');
+      }
+      // 4. Fuzzy name (strips HD, SD, +1, country suffix, punctuation)
+      if (!epg) {
+        epg = byFuzzy.get(fuzzy(ch.name)) || byFuzzy.get(fuzzy(ch.tvg_name));
+        if (epg) match = matchConfidence('fuzzy');
+      }
 
       if (epg) {
-        if (!ch.epg_id) { updateEpg.run(epg.tvg_id, ch.id); matched++; }
+        if (!ch.epg_id) { updateEpg.run(epg.tvg_id, match.confidence, match.reason, ch.id); matched++; }
         if (match_logos && !ch.tvg_logo && epg.icon) { updateLogo.run(epg.icon, ch.id); logo_matched++; }
       } else if (!ch.epg_id) {
         unmatched++;
       }
+
+      const current = db.prepare('SELECT epg_id, auto_match_confidence, auto_match_reason FROM channels WHERE id=?').get(ch.id);
+      results.push({ channel_id: ch.id, name: ch.name, epg_id: current.epg_id || '',
+        confidence: current.auto_match_confidence || (current.epg_id ? 'Manual' : null),
+        reason: current.auto_match_reason || (current.epg_id ? 'Manually assigned' : null) });
     }
   })();
 
-  res.json({ matched, logo_matched, unmatched });
+  res.json({ matched, logo_matched, unmatched, results });
 });
 
 // ── Helpers ───────────────────────────────────────────────────────
 
 function normalize(s) {
-  return s.toLowerCase().replace(/[^a-z0-9]/g, '');
+  return String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function matchConfidence(type) {
+  if (!type) return null;
+  const matches = {
+    id: ['High', 'Matched by exact tvg-id'],
+    'normalized-name': ['High', 'Matched by normalized channel name'],
+    country: ['Medium', 'Matched by name and country'],
+    fuzzy: ['Low', 'Matched by fuzzy name similarity'],
+  };
+  const [confidence, reason] = matches[type];
+  return { confidence, reason };
+}
+
+function countryCode(s) {
+  const value = String(s || '').trim();
+  const match = value.match(/(?:[\s([-])(US|UK|CA|AU|DE|FR|ES|IT|IN|MX|JP|CN|BR|PT|NL|BE|AT|CH|IE|NZ|ZA|PH|SE|NO|DK|FI|PL|TR|GR|IL|RU|UA|AR|CL|CO)\s*[\])]?$|(?:[\s-])(USA|Canada|Australia|Germany|France|Spain|Italy|India|Mexico)\s*$/i);
+  return match ? (match[1] || match[2]).toLowerCase() : '';
+}
+
+function hasCountry(s) { return !!countryCode(s); }
+
+function nameCountryKey(s) {
+  const value = String(s || '').trim();
+  const country = countryCode(value);
+  const base = country ? value.replace(/(?:[\s([-])(?:US|UK|CA|AU|DE|FR|ES|IT|IN|MX|JP|CN|BR|PT|NL|BE|AT|CH|IE|NZ|ZA|PH|SE|NO|DK|FI|PL|TR|GR|IL|RU|UA|AR|CL|CO)\s*[\])]?$|(?:[\s-])(?:USA|Canada|Australia|Germany|France|Spain|Italy|India|Mexico)\s*$/i, '') : value;
+  return `${fuzzy(base)}|${country}`;
 }
 
 function fuzzy(s) {

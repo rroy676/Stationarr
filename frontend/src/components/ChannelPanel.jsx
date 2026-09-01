@@ -127,7 +127,12 @@ export default function ChannelPanel({ channel, epgChannels, epgSources = [], on
               epgSources={epgSources}
               value={form.epg_id || ''}
               onChange={(val) => { setForm(f => ({ ...f, epg_id: val })); setSaved(false); }}
-            />
+              />
+            {form.auto_match_confidence && (
+              <div style={{ marginTop: 6, fontSize: 11, color: 'var(--muted)' }}>
+                <strong>{form.auto_match_confidence} confidence</strong> · {form.auto_match_reason}
+              </div>
+            )}
           </div>
 
           <div className="field">

@@ -95,6 +95,13 @@ router.put('/:id', (req, res) => {
   fields.forEach(f => { if (req.body[f] !== undefined) updates[f] = req.body[f]; });
   if (!Object.keys(updates).length) return res.json(ch);
 
+  // An EPG assignment made through the channel editor is manual. Clear stale
+  // match metadata when the assignment is removed.
+  if (Object.prototype.hasOwnProperty.call(updates, 'epg_id') && updates.epg_id !== ch.epg_id) {
+    updates.auto_match_confidence = updates.epg_id ? 'Manual' : null;
+    updates.auto_match_reason = updates.epg_id ? 'Manually assigned' : null;
+  }
+
   const set = Object.keys(updates).map(k => `${k}=@${k}`).join(', ');
   db.prepare(`UPDATE channels SET ${set} WHERE id=@id`).run({ ...updates, id: ch.id });
   res.json(db.prepare('SELECT * FROM channels WHERE id = ?').get(ch.id));
@@ -166,7 +173,8 @@ router.post('/bulk', (req, res) => {
   } else if (action === 'set_group' && value) {
     db.prepare(`UPDATE channels SET grp=? WHERE ${whereSql}`).run(value, ...whereParams);
   } else if (action === 'set_epg_id' && value !== undefined) {
-    db.prepare(`UPDATE channels SET epg_id=? WHERE ${whereSql}`).run(value, ...whereParams);
+    db.prepare(`UPDATE channels SET epg_id=?, auto_match_confidence=?, auto_match_reason=? WHERE ${whereSql}`)
+      .run(value, value ? 'Manual' : null, value ? 'Manually assigned' : null, ...whereParams);
   } else {
     return res.status(400).json({ error: 'Unknown action' });
   }
