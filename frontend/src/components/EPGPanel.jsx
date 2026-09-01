@@ -102,22 +102,18 @@ export default function EPGPanel({ sources, onClose, onChange }) {
     finally { setBusyFor(id, false); }
   };
 
-  const uploadFile = (file, id) => {
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      setBusyFor(id, 'upload');
-      try {
-        const res = await api.upload(id, { content: e.target.result });
-        toast(`Loaded ${res.loaded} channels · ${res.programme_count ?? 0} programmes · ${formatSize(res.cache_size)} cached`, 'success');
-        setOrderedSources(prev => prev.map(s => s.id === id
-          ? { ...s, channel_count: res.loaded, programme_count: res.programme_count ?? s.programme_count ?? 0, cache_size: res.cache_size, cache_updated: new Date().toISOString() }
-          : s
-        ));
-        onChange();
-      } catch (err) { toast(err.message, 'error'); }
-      finally { setBusyFor(id, false); }
-    };
-    reader.readAsText(file);
+  const uploadFile = async (file, id) => {
+    setBusyFor(id, 'upload');
+    try {
+      const res = await api.upload(id, file);
+      toast(`Loaded ${res.loaded} channels · ${res.programme_count ?? 0} programmes · ${formatSize(res.cache_size)} cached`, 'success');
+      setOrderedSources(prev => prev.map(s => s.id === id
+        ? { ...s, channel_count: res.loaded, programme_count: res.programme_count ?? s.programme_count ?? 0, cache_size: res.cache_size, cache_updated: new Date().toISOString() }
+        : s
+      ));
+      onChange();
+    } catch (err) { toast(err.message, 'error'); }
+    finally { setBusyFor(id, false); }
   };
 
   const setEditField = (k) => (e) => setEditForm(f => ({

@@ -1,13 +1,16 @@
 const router  = require('express').Router();
 const db      = require('../db');
 const requireAuth = require('../middleware/auth');
-const { parseXMLTV, parseXMLTVBuffer } = require('../utils/xmltv');
+const { parseXMLTV, parseXMLTVBuffer, parseXMLTVFile } = require('../utils/xmltv');
 const { saveEPGCache, deleteEPGCache } = require('../utils/xmltv-merge');
 const { readProgrammes } = require('../utils/epg-reader');
-const { countProgrammeEntriesFromBuffer } = require('../utils/xmltv-programme-count');
+const { countProgrammeEntriesFromBuffer, countProgrammeEntriesFromFile } = require('../utils/xmltv-programme-count');
 const fetch   = require('node-fetch');
 const path    = require('path');
 const fs      = require('fs');
+const crypto  = require('crypto');
+const { Transform } = require('stream');
+const { pipeline } = require('stream/promises');
 const logger  = require('../logger');
 const { queueGuideIndex } = require('../utils/guide-indexer');
 const { redactSensitiveUrls } = require('../utils/http-errors');
@@ -156,7 +159,6 @@ router.post('/:id/fetch', async (req, res) => {
     });
 
     // Parse from disk using SAX streaming — memory efficient
-    const { parseXMLTVFile } = require('../utils/xmltv');
     const channels = await parseXMLTVFile(tmpPath);
     const size     = fs.statSync(tmpPath).size;
 
@@ -179,24 +181,68 @@ router.post('/:id/fetch', async (req, res) => {
   }
 });
 
-// POST /api/epg/:id/upload
+function epgUploadLimitBytes() {
+  const configured = Number(process.env.EPG_UPLOAD_MAX_SIZE_MB || 250);
+  const megabytes = Number.isFinite(configured) && configured > 0 ? configured : 250;
+  return Math.floor(megabytes * 1024 * 1024);
+}
+
+function uploadSizeLimiter(maxBytes) {
+  let received = 0;
+  return new Transform({
+    transform(chunk, _encoding, callback) {
+      received += chunk.length;
+      if (received > maxBytes) {
+        const error = new Error('EPG upload exceeds configured size limit');
+        error.code = 'EPG_UPLOAD_TOO_LARGE';
+        callback(error);
+      } else {
+        callback(null, chunk);
+      }
+    },
+  });
+}
+
+// POST /api/epg/:id/upload — raw XML/XMLTV or gzip body, streamed to disk
 router.post('/:id/upload', async (req, res) => {
   const src = db.prepare('SELECT * FROM epg_sources WHERE id=? AND user_id=?').get(req.params.id, req.user.id);
   if (!src) return res.status(404).json({ error: 'Not found' });
-  const { content } = req.body;
-  if (!content) return res.status(400).json({ error: 'content required' });
+  const maxBytes = epgUploadLimitBytes();
+  const contentLength = Number(req.get('content-length'));
+  if (Number.isFinite(contentLength) && contentLength > maxBytes) {
+    req.resume();
+    return res.status(413).json({ error: `EPG upload exceeds the ${process.env.EPG_UPLOAD_MAX_SIZE_MB || 250} MB limit` });
+  }
+
+  const cacheDir = path.join(DATA_DIR, 'epg_cache');
+  const tmpPath = path.join(cacheDir, `.upload_${src.id}_${crypto.randomBytes(8).toString('hex')}.tmp`);
   try {
-    const buf      = Buffer.from(content, 'utf8');
-    const channels = await parseXMLTVBuffer(buf);
-    const { cachePath, size } = saveEPGCache(DATA_DIR, src.id, buf);
-    const programmeCount = countProgrammeEntriesFromBuffer(buf);
+    await fs.promises.mkdir(cacheDir, { recursive: true });
+    await pipeline(req, uploadSizeLimiter(maxBytes), fs.createWriteStream(tmpPath, { flags: 'wx' }));
+    const size = (await fs.promises.stat(tmpPath)).size;
+    if (!size) {
+      const error = new Error('XMLTV payload required');
+      error.code = 'EMPTY_EPG_UPLOAD';
+      throw error;
+    }
+
+    const channels = await parseXMLTVFile(tmpPath);
+    const programmeCount = await countProgrammeEntriesFromFile(tmpPath);
+    const cachePath = path.join(cacheDir, `source_${src.id}.xml`);
+    await fs.promises.rename(tmpPath, cachePath);
     storeEPGChannels(src.id, channels, cachePath, size, programmeCount);
     queueGuideIndex(src.id, cachePath);
     try { require('./guide').clearCache(); } catch {}
     logger.info('epg', 'Manual EPG source fetch success', { source_id: src.id, channels: channels.length, programmes: programmeCount });
     res.json({ loaded: channels.length, cache_size: size, cached: true, programme_count: programmeCount });
   } catch (e) {
-    res.status(500).json({ error: 'Parse failed: ' + e.message });
+    await fs.promises.unlink(tmpPath).catch(() => {});
+    if (e.code === 'EPG_UPLOAD_TOO_LARGE') {
+      return res.status(413).json({ error: `EPG upload exceeds the ${process.env.EPG_UPLOAD_MAX_SIZE_MB || 250} MB limit` });
+    }
+    const safeMessage = redactSensitiveUrls(e?.message || String(e));
+    logger.error('epg', 'Manual EPG upload failure', { source_id: src.id, error: safeMessage });
+    res.status(400).json({ error: 'Upload failed: ' + safeMessage });
   }
 });
 
