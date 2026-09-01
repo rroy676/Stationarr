@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Copy, Check, ExternalLink, RefreshCw } from 'lucide-react';
-import { playlists as api } from '../api.js';
+import { auth as authApi, playlists as api } from '../api.js';
 import { useToast } from '../context.jsx';
 
 function fallbackCopy(text, done) {
@@ -19,8 +19,28 @@ export default function ServeModal({ playlist: initialPlaylist, onClose }) {
   const [copied,   setCopied]   = useState('');
   const [regen,    setRegen]    = useState(false);
   const [regenCombined, setRegenCombined] = useState(false);
+  const [urlSettings, setUrlSettings] = useState({ tailscale_url: null, url_mode: 'local' });
+  const [urlMode, setUrlMode] = useState('local');
 
-  const base = window.location.origin;
+  useEffect(() => {
+    authApi.settings.get()
+      .then(settings => {
+        setUrlSettings(settings);
+        if (settings.url_mode === 'tailscale' && settings.tailscale_url) setUrlMode('tailscale');
+        else if (settings.url_mode === 'public') setUrlMode('public');
+      })
+      .catch(() => {});
+  }, []);
+
+  const localBase = window.location.origin;
+  const modeOptions = [
+    { value: 'local', label: 'Local', base: localBase },
+    // Public currently uses the same origin until a separate public URL is configured.
+    ...(localBase !== window.location.origin ? [{ value: 'public', label: 'Public', base: localBase }] : []),
+    ...(urlSettings.tailscale_url ? [{ value: 'tailscale', label: 'Tailscale', base: urlSettings.tailscale_url.replace(/\/$/, '') }] : []),
+  ];
+  const activeMode = modeOptions.some(mode => mode.value === urlMode) ? urlMode : 'local';
+  const base = modeOptions.find(mode => mode.value === activeMode)?.base || localBase;
 
   const m3uUrl       = `${base}/api/serve/${playlist.slug}/playlist.m3u`;
   const combinedM3uUrl = playlist.combined_slug ? `${base}/api/serve/combined/${playlist.combined_slug}/playlist.m3u` : '';
@@ -74,6 +94,18 @@ export default function ServeModal({ playlist: initialPlaylist, onClose }) {
           <button className="btn btn-ghost btn-icon btn-sm" onClick={onClose}>X</button>
         </div>
         <div className="modal-body">
+
+          <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+            {modeOptions.map(mode => (
+              <button
+                key={mode.value}
+                className={`btn btn-sm ${activeMode === mode.value ? 'btn-primary' : ''}`}
+                onClick={() => setUrlMode(mode.value)}
+              >
+                {mode.label}
+              </button>
+            ))}
+          </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <p style={{ fontWeight: 600, fontSize: 13 }}>Direct M3U</p>

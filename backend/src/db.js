@@ -196,3 +196,8 @@ if (!chCols2.includes('backup_epg_id')) {
 if (!epgCols3.includes('guide_index_status')) db.exec("ALTER TABLE epg_sources ADD COLUMN guide_index_status TEXT DEFAULT 'idle'");
 if (!epgCols3.includes('guide_index_updated')) db.exec("ALTER TABLE epg_sources ADD COLUMN guide_index_updated TEXT");
 if (!epgCols3.includes('guide_index_error')) db.exec("ALTER TABLE epg_sources ADD COLUMN guide_index_error TEXT");
+
+// User URL configuration migration
+const userUrlCols = db.prepare("PRAGMA table_info(users)").all().map(c => c.name);
+if (!userUrlCols.includes('tailscale_url')) db.exec("ALTER TABLE users ADD COLUMN tailscale_url TEXT");
+if (!userUrlCols.includes('url_mode')) db.exec("ALTER TABLE users ADD COLUMN url_mode TEXT DEFAULT 'local'");

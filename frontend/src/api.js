@@ -87,6 +87,10 @@ export const auth = {
   register: (body) => post('/auth/register', body),
   me:       ()     => get('/auth/me'),
   password: (body) => put('/auth/password',  body),
+  settings: {
+    get:    ()     => get('/auth/settings'),
+    update: (body) => put('/auth/settings', body),
+  },
 };
 
 export const playlists = {
