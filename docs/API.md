@@ -235,6 +235,33 @@ Common status codes: `400` bad input, `401` unauthenticated, `403` forbidden, `4
 
 ---
 
+## Public status
+
+### GET /status/summary
+Returns an unauthenticated status and inventory summary for monitoring integrations such as Home Assistant. It returns HTTP `200` even when the application is degraded, so monitoring clients can read `status` and `last_error`.
+
+```json
+{
+  "status": "ok",
+  "version": "1.2.2",
+  "users": 3,
+  "playlists": 7,
+  "channels": 12400,
+  "epg_sources": 4,
+  "epg_channels": 12000,
+  "guide_programmes": 85000,
+  "epg_programmes": 85000,
+  "scraper_channels": 12,
+  "last_refreshed": "2026-09-01 12:00:00",
+  "last_fetched": "2026-09-01 12:05:00",
+  "last_error": null
+}
+```
+
+`status` is `ok` when all database queries succeed and `degraded` when a query fails. The first version does not check GitHub for update information.
+
+---
+
 ## Xtream Codes API (public, no JWT)
 
 These endpoints are mounted at the root and implement the Xtream Codes protocol.
