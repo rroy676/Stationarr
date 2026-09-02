@@ -12,6 +12,7 @@ import Guide       from './pages/Guide.jsx';
 import Scraper     from './pages/Scraper.jsx';
 import Help        from './pages/Help.jsx';
 import Logs        from './pages/Logs.jsx';
+import Tasks       from './pages/Tasks.jsx';
 
 function UpdateBanner() {
   const { latest, hasUpdate, dismiss } = useVersionCheck();
@@ -84,6 +85,7 @@ export default function App() {
             <Route path="/scraper"     element={<Guard><Scraper /></Guard>} />
             <Route path="/help"        element={<Guard><Help /></Guard>} />
             <Route path="/logs"        element={<Guard><Logs /></Guard>} />
+            <Route path="/tasks"       element={<Guard><Tasks /></Guard>} />
             <Route path="*"         element={<Navigate to="/" replace />} />
           </Routes>
         </BrowserRouter>
