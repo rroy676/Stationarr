@@ -73,6 +73,33 @@ router.get('/me', requireAuth, (req, res) => {
   res.json(user);
 });
 
+// GET /api/auth/settings
+router.get('/settings', requireAuth, (req, res) => {
+  const settings = db.prepare('SELECT tailscale_url, url_mode FROM users WHERE id = ?').get(req.user.id);
+  res.json({
+    tailscale_url: settings.tailscale_url || null,
+    url_mode: ['local', 'public', 'tailscale'].includes(settings.url_mode) ? settings.url_mode : 'local',
+  });
+});
+
+// PUT /api/auth/settings
+router.put('/settings', requireAuth, (req, res) => {
+  const { tailscale_url, url_mode } = req.body || {};
+  if (url_mode !== undefined && !['local', 'public', 'tailscale'].includes(url_mode)) {
+    return res.status(400).json({ error: 'url_mode must be local, public, or tailscale' });
+  }
+
+  const current = db.prepare('SELECT tailscale_url, url_mode FROM users WHERE id = ?').get(req.user.id);
+  const nextUrl = tailscale_url === undefined ? current.tailscale_url : (tailscale_url || null);
+  const nextMode = url_mode === undefined && ['local', 'public', 'tailscale'].includes(current.url_mode)
+    ? current.url_mode
+    : (url_mode === undefined ? 'local' : url_mode);
+  db.prepare('UPDATE users SET tailscale_url = ?, url_mode = ? WHERE id = ?')
+    .run(nextUrl, nextMode, req.user.id);
+
+  res.json({ tailscale_url: nextUrl, url_mode: nextMode });
+});
+
 // PUT /api/auth/password
 router.put('/password', requireAuth, (req, res) => {
   const { current, next: next_ } = req.body;

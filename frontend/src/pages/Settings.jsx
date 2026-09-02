@@ -24,6 +24,8 @@ export default function Settings() {
   const [restoring, setRestoring] = useState(false);
   const [showEPG, setShowEPG] = useState(false);
   const [epgSources, setEpgSources] = useState([]);
+  const [urlSettings, setUrlSettings] = useState({ tailscale_url: '', url_mode: 'local' });
+  const [urlSaving, setUrlSaving] = useState(false);
 
   const [version, setVersion] = useState(null);
   const [release, setRelease] = useState(null);
@@ -37,6 +39,15 @@ export default function Settings() {
       .then(r => r.json())
       .then(d => setRelease(d))
       .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    api.settings.get()
+      .then(settings => setUrlSettings({
+        tailscale_url: settings.tailscale_url || '',
+        url_mode: settings.url_mode || 'local',
+      }))
+      .catch(err => toast(err.message, 'error'));
   }, []);
 
   useEffect(() => {
@@ -79,6 +90,20 @@ export default function Settings() {
       setForm({ current: '', next: '', confirm: '' });
     } catch (err) { toast(err.message, 'error'); }
     finally { setSaving(false); }
+  };
+
+  const saveUrlSettings = async (e) => {
+    e.preventDefault();
+    setUrlSaving(true);
+    try {
+      const settings = await api.settings.update({
+        tailscale_url: urlSettings.tailscale_url.trim(),
+        url_mode: urlSettings.url_mode,
+      });
+      setUrlSettings({ tailscale_url: settings.tailscale_url || '', url_mode: settings.url_mode });
+      toast('URL settings updated', 'success');
+    } catch (err) { toast(err.message, 'error'); }
+    finally { setUrlSaving(false); }
   };
 
   return (
@@ -152,6 +177,43 @@ export default function Settings() {
             <p className="text-xs text-faint" style={{ marginTop: 8 }}>
               Selected: <span className="mono">{tz}</span>
             </p>
+          </div>
+        </div>
+
+        {/* URL Configuration */}
+        <div>
+          <h2 style={{ fontSize: 15, fontWeight: 600, marginBottom: 4 }}>URL Configuration</h2>
+          <p className="text-sm text-muted" style={{ marginBottom: 12 }}>
+            Configure how Stationarr generates playlist and XMLTV links for your IPTV players.
+          </p>
+          <div className="card">
+            <form onSubmit={saveUrlSettings} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div className="field">
+                <label>Public Base URL</label>
+                <input className="input" value={window.location.origin} readOnly />
+              </div>
+              <div className="field">
+                <label>Tailscale Base URL</label>
+                <input
+                  className="input"
+                  type="url"
+                  placeholder="http://stationarr-host.tailnet-name.ts.net:3000"
+                  value={urlSettings.tailscale_url}
+                  onChange={e => setUrlSettings(s => ({ ...s, tailscale_url: e.target.value }))}
+                />
+              </div>
+              <div className="field">
+                <label>URL mode</label>
+                <select className="input" value={urlSettings.url_mode} onChange={e => setUrlSettings(s => ({ ...s, url_mode: e.target.value }))}>
+                  <option value="local">Local (LAN)</option>
+                  <option value="public">Public</option>
+                  <option value="tailscale">Tailscale</option>
+                </select>
+              </div>
+              <button type="submit" className="btn btn-primary btn-sm" disabled={urlSaving} style={{ alignSelf: 'flex-start' }}>
+                {urlSaving ? 'Saving…' : 'Save'}
+              </button>
+            </form>
           </div>
         </div>
 
