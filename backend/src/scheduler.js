@@ -19,13 +19,33 @@ const { importXtreamEPGForPlaylist, sanitizeXtreamEPGError } = require('./utils/
 const DATA_DIR    = process.env.DATA_DIR || './data';
 const CHECK_EVERY = 15 * 60 * 1000; // 15 minutes
 
+// In-memory status is intentionally informational. Scheduled work remains owned by
+// this module; the system page never exposes a way to invoke it.
+const taskRuns = new Map();
+let schedulerRun = { status: 'idle', last_run: null, next_run: null, duration_ms: null };
+
+function beginTask(id) {
+  const started = Date.now();
+  taskRuns.set(id, { status: 'running', last_run: null, next_run: null, duration_ms: null });
+  return (status = 'success', error = null) => {
+    taskRuns.set(id, {
+      status,
+      last_run: new Date(started).toISOString(),
+      next_run: null,
+      duration_ms: Date.now() - started,
+      ...(error ? { error: error.message || String(error) } : {}),
+    });
+  };
+}
+
 function buildM3UUrl(pl) {
   return pl.source_url || null;
 }
 
 async function refreshPlaylist(pl) {
+  const finish = beginTask(`playlist:${pl.id}`);
   const url = buildM3UUrl(pl);
-  if (!url && pl.source_type !== 'xtream') return;
+  if (!url && pl.source_type !== 'xtream') { finish('success'); return; }
 
   console.log(`[scheduler] Refreshing playlist "${pl.name}" (id=${pl.id})`);
   logger.info('scheduler', 'Playlist scheduled refresh started', {
@@ -114,12 +134,15 @@ async function refreshPlaylist(pl) {
       console.error(`[scheduler] Technical fetch error for playlist "${pl.name}":`, safeMessage);
     }
 
+    finish('error', e);
     throw e;
   }
+  finish('success');
 }
 
 async function refreshEPGSource(src) {
-  if (!src.url) return;
+  const finish = beginTask(`epg:${src.id}`);
+  if (!src.url) { finish('success'); return; }
 
   console.log(`[scheduler] Refreshing EPG source "${src.name}" (id=${src.id})`);
   logger.info('scheduler', 'EPG source scheduled refresh started', {
@@ -165,8 +188,10 @@ async function refreshEPGSource(src) {
       error: safeMessage,
     });
 
+    finish('error', e);
     throw e;
   }
+  finish('success');
 }
 
 function isDue(lastRefreshed, intervalHours) {
@@ -177,6 +202,8 @@ function isDue(lastRefreshed, intervalHours) {
 }
 
 async function runCheck() {
+  const started = Date.now();
+  schedulerRun = { ...schedulerRun, status: 'running' };
   // Check playlists
   const playlists = db.prepare(
     'SELECT * FROM playlists WHERE auto_refresh = 1'
@@ -206,6 +233,12 @@ async function runCheck() {
       }
     }
   }
+  schedulerRun = {
+    status: 'success',
+    last_run: new Date(started).toISOString(),
+    next_run: new Date(Date.now() + CHECK_EVERY).toISOString(),
+    duration_ms: Date.now() - started,
+  };
 }
 
 function start() {
@@ -215,4 +248,8 @@ function start() {
   setInterval(runCheck, CHECK_EVERY);
 }
 
-module.exports = { start, refreshPlaylist, refreshEPGSource };
+function getTaskStatuses() {
+  return { scheduler: schedulerRun, jobs: Object.fromEntries(taskRuns) };
+}
+
+module.exports = { start, refreshPlaylist, refreshEPGSource, getTaskStatuses };

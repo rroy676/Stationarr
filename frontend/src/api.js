@@ -190,3 +190,7 @@ export const logs = {
   },
   exportFile: (format = 'txt') => request('GET', `/logs/export?format=${format}`, undefined, true),
 };
+
+export const system = {
+  tasks: () => get('/system/tasks'),
+};
