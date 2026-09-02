@@ -25,4 +25,35 @@ jobs:
           file: ./Dockerfile
           push: false
           load: true
-          tags: stationarr:test
+          tags: stationarr:smoke-test
+          build-args: |
+            APP_VERSION=smoke-test
+
+      - name: Run Docker smoke test
+        run: |
+          docker run -d --name stationarr-smoke-test -p 3000:3000 stationarr:smoke-test
+
+          health_response=""
+          for attempt in {1..30}; do
+            if health_response=$(curl --silent --show-error --fail http://localhost:3000/api/health); then
+              echo "Health response: ${health_response}"
+              if echo "${health_response}" | grep -q '"ok":true'; then
+                exit 0
+              fi
+
+              echo "/api/health did not report ok true."
+              exit 1
+            fi
+
+            echo "Waiting for Stationarr to start (${attempt}/30)..."
+            sleep 1
+          done
+
+          echo "Stationarr did not become healthy within 30 seconds."
+          echo "Last health response: ${health_response}"
+          docker logs stationarr-smoke-test
+          exit 1
+
+      - name: Stop Docker smoke test container
+        if: always()
+        run: docker rm -f stationarr-smoke-test || true
