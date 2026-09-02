@@ -3,11 +3,25 @@ const db     = require('../db');
 const { exportM3U } = require('../utils/m3u');
 const { mergeXMLTV, proxyEPG } = require('../utils/xmltv-merge');
 const logger = require('../logger');
+const { getServePreset, listServePresets } = require('../utils/serve-presets');
+
+function requestedPreset(req, res) {
+  const preset = getServePreset(req.query.preset || 'generic');
+  if (!preset) {
+    res.status(400).json({ error: 'Unknown serve preset', presets: listServePresets().map(p => p.id) });
+    return null;
+  }
+  return preset;
+}
+
+router.get('/presets', (_req, res) => res.json({ presets: listServePresets() }));
 
 // GET /api/serve/combined/:token/playlist.m3u
 // Uses a dedicated user-level share token so individual playlist slugs do not
 // unlock the global combined playlist.
 router.get('/combined/:token/playlist.m3u', (req, res) => {
+  const preset = requestedPreset(req, res);
+  if (!preset) return;
   const user = db.prepare('SELECT id, combined_slug FROM users WHERE combined_slug = ?').get(req.params.token);
   if (!user) return res.status(404).send('Not found');
 
@@ -22,11 +36,13 @@ router.get('/combined/:token/playlist.m3u', (req, res) => {
   logger.info('playlist', 'Generated combined playlist served/exported', { user_id: user.id, channel_count: channels.length });
   res.setHeader('Content-Type', 'audio/x-mpegurl; charset=utf-8');
   res.setHeader('Content-Disposition', 'attachment; filename="stationarr-combined.m3u"');
-  res.send(exportM3U(channels));
+  res.send(exportM3U(channels.filter(c => preset.includeUnmatched || c.epg_id || c.tvg_id), preset.m3u));
 });
 
 // GET /api/serve/:slug/playlist.m3u
 router.get('/:slug/playlist.m3u', (req, res) => {
+  const preset = requestedPreset(req, res);
+  if (!preset) return;
   const pl = db.prepare('SELECT * FROM playlists WHERE slug = ?').get(req.params.slug);
   if (!pl) return res.status(404).send('Not found');
 
@@ -37,17 +53,19 @@ router.get('/:slug/playlist.m3u', (req, res) => {
   logger.info('playlist', 'Generated playlist served/exported', { playlist_id: pl.id, slug: pl.slug, channel_count: channels.length });
   res.setHeader('Content-Type', 'audio/x-mpegurl; charset=utf-8');
   res.setHeader('Content-Disposition', `attachment; filename="${slugify(pl.name)}.m3u"`);
-  res.send(exportM3U(channels));
+  res.send(exportM3U(channels.filter(c => preset.includeUnmatched || c.epg_id || c.tvg_id), preset.m3u));
 });
 
 // GET /api/serve/:slug/epg.xml — merged + filtered full EPG with timeshift
 router.get('/:slug/epg.xml', async (req, res) => {
+  const preset = requestedPreset(req, res);
+  if (!preset) return;
   const pl = db.prepare('SELECT * FROM playlists WHERE slug = ?').get(req.params.slug);
   if (!pl) return res.status(404).send('Not found');
 
   res.setHeader('Content-Type', 'application/xml; charset=utf-8');
   try {
-    await buildAndSendEPG(pl, res);
+    await buildAndSendEPG(pl, res, preset);
   } catch (e) {
     console.error('EPG serve error:', e.message);
     if (!res.headersSent) res.status(502).send('EPG unavailable');
@@ -71,7 +89,7 @@ router.get('/:slug/info', (req, res) => {
 
 // ── Shared EPG builder ────────────────────────────────────────────
 
-async function buildAndSendEPG(pl, res) {
+async function buildAndSendEPG(pl, res, preset = getServePreset('generic')) {
   // Get all enabled channels with epg_id and timeshift
   const chRows = db.prepare(
     `SELECT epg_id, timeshift FROM channels WHERE playlist_id = ? AND epg_id != '' AND enabled = 1`
