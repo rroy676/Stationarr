@@ -32,15 +32,22 @@ function sanitize(value) {
   return value;
 }
 
-function log({ level = 'info', category = 'system', message, metadata = null }) {
+function log({ level = 'info', category = 'system', message, metadata = null,
+  type, status, title, details }) {
   try {
     if (!message) return;
     const safeLevel = VALID_LEVELS.has(level) ? level : 'info';
     const safeCategory = VALID_CATEGORIES.has(category) ? category : 'system';
     const cleanMessage = sanitizeString(String(message));
     const cleanMetadata = metadata ? JSON.stringify(sanitize(metadata)) : null;
-    db.prepare('INSERT INTO app_logs (ts, level, category, message, metadata) VALUES (datetime(\'now\'), ?, ?, ?, ?)')
-      .run(safeLevel, safeCategory, cleanMessage, cleanMetadata);
+    const cleanDetails = details == null
+      ? cleanMetadata
+      : JSON.stringify(sanitize(details));
+    db.prepare(`INSERT INTO app_logs
+      (ts, level, category, message, metadata, event_type, status, title, details)
+      VALUES (datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?)`)
+      .run(safeLevel, safeCategory, cleanMessage, cleanMetadata,
+        type || safeCategory, status || safeLevel, title || cleanMessage, cleanDetails);
     db.prepare('DELETE FROM app_logs WHERE id NOT IN (SELECT id FROM app_logs ORDER BY id DESC LIMIT ?)').run(LOG_RETENTION);
   } catch (_) {
     // never block app flows
@@ -52,6 +59,11 @@ const logger = {
   info: (category, message, metadata) => log({ level: 'info', category, message, metadata }),
   warn: (category, message, metadata) => log({ level: 'warn', category, message, metadata }),
   error: (category, message, metadata) => log({ level: 'error', category, message, metadata }),
+  // Activity history uses the same write path as operational logs. Details are
+  // sanitized before they reach SQLite, so callers can safely include errors
+  // and diagnostics without exposing credentials.
+  event: ({ type = 'system', status = 'info', title, details = null, metadata = null }) =>
+    log({ level: status, category: type, message: title, metadata, type, status, title, details }),
   sanitize,
 };
 

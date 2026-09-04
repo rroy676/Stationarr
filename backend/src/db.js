@@ -89,7 +89,11 @@ db.exec(`
     level TEXT NOT NULL,
     category TEXT NOT NULL,
     message TEXT NOT NULL,
-    metadata TEXT
+    metadata TEXT,
+    event_type TEXT,
+    status TEXT,
+    title TEXT,
+    details TEXT
   );
   CREATE INDEX IF NOT EXISTS idx_app_logs_ts ON app_logs(ts DESC);
 
@@ -109,6 +113,14 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_gp_source_time ON guide_programmes(source_id, start, stop);
 
 `);
+
+// Activity history fields were added after app_logs was introduced. Keep the
+// existing log columns for compatibility with exports and older installations.
+const logCols = db.prepare("PRAGMA table_info(app_logs)").all().map(c => c.name);
+if (!logCols.includes('event_type')) db.exec("ALTER TABLE app_logs ADD COLUMN event_type TEXT");
+if (!logCols.includes('status')) db.exec("ALTER TABLE app_logs ADD COLUMN status TEXT");
+if (!logCols.includes('title')) db.exec("ALTER TABLE app_logs ADD COLUMN title TEXT");
+if (!logCols.includes('details')) db.exec("ALTER TABLE app_logs ADD COLUMN details TEXT");
 
 // Runtime migrations — safely add columns to existing DBs
 
