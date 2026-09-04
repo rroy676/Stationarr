@@ -5,6 +5,14 @@ const zlib = require('zlib');
 const { Readable } = require('stream');
 const { parseXMLTVTime, toXMLTVTime } = require('./epg-reader');
 
+// Array.prototype.push spread syntax turns every item into a function
+// argument. Large XMLTV feeds can contain more arguments than V8's call stack
+// allows, even though the arrays themselves are perfectly valid. Append in a
+// loop so the merge has no programme-count-dependent stack limit.
+function appendAll(target, values) {
+  for (const value of values) target.push(value);
+}
+
 /**
  * Build a merged XMLTV string from cached source files.
  * Uses streaming SAX — never loads full file into memory.
@@ -24,14 +32,14 @@ async function mergeXMLTV(cachePaths, epgIds, timeshiftMap = {}) {
     if (!fs.existsSync(cachePath)) continue;
     try {
       const { channels, programmes } = await extractFromFile(cachePath, epgIds, filterAll, seenChannels, timeshiftMap);
-      channelXml.push(...channels);
-      programmeXml.push(...programmes);
+      appendAll(channelXml, channels);
+      appendAll(programmeXml, programmes);
     } catch (e) {
       console.error('[xmltv-merge] Error reading', cachePath, e.message);
     }
   }
 
-  const body = [...channelXml, ...programmeXml].join('\n');
+  const body = channelXml.concat(programmeXml).join('\n');
   return `<?xml version="1.0" encoding="UTF-8"?>\n<tv generator-info-name="Stationarr">\n${body}\n</tv>`;
 }
 
