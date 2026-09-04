@@ -190,3 +190,13 @@ export const logs = {
   },
   exportFile: (format = 'txt') => request('GET', `/logs/export?format=${format}`, undefined, true),
 };
+
+export const activity = {
+  history: (q = {}) => {
+    const params = new URLSearchParams();
+    Object.entries(q).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') params.set(key, String(value));
+    });
+    return get(`/activity/history?${params.toString()}`);
+  },
+};

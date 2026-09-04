@@ -53,6 +53,7 @@ app.use('/api/guide',     require('./routes/guide'));
 app.use('/api/backup',    require('./routes/backup'));
 app.use('/api/scraper',   require('./routes/scraper'));
 app.use('/api/logs',      require('./routes/logs'));
+app.use('/api/activity',  require('./routes/activity'));
 
 // Xtream-compatible API — mounted at root
 app.use('/', require('./routes/xtream'));

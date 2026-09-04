@@ -207,7 +207,10 @@ export default function Settings() {
               <p style={{ fontWeight:500, marginBottom:4 }}>Application logs</p>
               <p className='text-sm text-muted'>View recent Stationarr events and export a sanitized debug log for support.</p>
             </div>
-            <button className='btn btn-sm btn-primary' onClick={() => nav('/logs')}><FileText size={13}/> Open Logs</button>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className='btn btn-sm btn-primary' onClick={() => nav('/activity/history')}><FileText size={13}/> Activity history</button>
+              <button className='btn btn-sm' onClick={() => nav('/logs')}><FileText size={13}/> System logs</button>
+            </div>
           </div>
         </div>
 

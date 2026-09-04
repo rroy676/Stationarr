@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import HeaderButtons from '../components/HeaderButtons.jsx';
 import { useNavigate } from 'react-router-dom';
-import { Plus, List, Trash2, ExternalLink, LogOut, Settings, Tv, Shield, Pencil, RefreshCw, Clock, Copy, Filter, HelpCircle } from 'lucide-react';
+import { Plus, List, Trash2, ExternalLink, LogOut, Settings, Tv, Shield, Pencil, RefreshCw, Clock, Copy, Filter, HelpCircle, Activity } from 'lucide-react';
 import ThemeToggle from '../components/ThemeToggle.jsx';
 import { playlists as api, playlists_extra } from '../api.js';
 import { useAuth, useToast } from '../context.jsx';
@@ -84,6 +84,7 @@ export default function Dashboard() {
           <ThemeToggle />
           {user?.is_admin && <button className="btn btn-ghost btn-sm" onClick={() => nav('/admin')}><Shield size={14}/> Admin</button>}
           <button className="btn btn-ghost btn-sm" onClick={() => nav('/help')}><HelpCircle size={14}/> Help</button>
+          <button className="btn btn-ghost btn-sm" onClick={() => nav('/activity/history')}><Activity size={14}/> Activity</button>
           <button className="btn btn-ghost btn-sm" onClick={() => nav('/settings')}><Settings size={14}/> Settings</button>
           <HeaderButtons />
           <button className="btn btn-ghost btn-sm" onClick={logout}><LogOut size={14}/> Sign out</button>
